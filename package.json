@@ -1,0 +1,91 @@
+{
+  "name": "gero",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "apps/main/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "proxy:llm": "node apps/server/llm-proxy.mjs",
+    "dev:all": "concurrently -k -n proxy,dev -c yellow,cyan \"npm run proxy:llm\" \"npm run dev\"",
+    "electron:dev": "concurrently -k -n proxy,dev,electron -c yellow,cyan,magenta \"npm run proxy:llm\" \"npm run dev\" \"wait-on http://localhost:3000 && set VITE_DEV_SERVER_URL=http://localhost:3000 && electron .\"",
+    "build": "vite build",
+    "electron:build:win": "npm run build && electron-builder --win --x64",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/ibm-plex-sans": "^5.2.8",
+    "@fontsource/inter": "^5.2.8",
+    "@google/genai": "^1.38.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "http-proxy-middleware": "^3.0.5",
+    "lucide-react": "^0.563.0",
+    "openai": "^6.16.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@resvg/resvg-js": "^2.6.2",
+    "@tailwindcss/cli": "^4.1.18",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^25.0.10",
+    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/parser": "^8.53.1",
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.23",
+    "concurrently": "^9.2.1",
+    "electron": "^40.0.0",
+    "electron-builder": "^26.4.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^17.2.0",
+    "png-to-ico": "^3.0.1",
+    "postcss": "^8.5.6",
+    "prettier": "^3.8.1",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "wait-on": "^9.0.3"
+  },
+  "build": {
+    "appId": "com.gero.app",
+    "productName": "Catflash",
+    "files": [
+      "dist/**",
+      "apps/main/**",
+      "assets/icons/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "apps/server",
+        "to": "server"
+      }
+    ],
+    "win": {
+      "icon": "assets/icons/app.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "installerIcon": "assets/icons/app.ico",
+      "uninstallerIcon": "assets/icons/app.ico",
+      "oneClick": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

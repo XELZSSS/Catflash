@@ -1,0 +1,274 @@
+import OpenAI from 'openai';
+import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
+import { OpenAIStyleProviderBase } from './openaiBase';
+import { ProviderChat, ProviderDefinition } from './types';
+import { IFLOW_MODEL_CATALOG } from './models';
+import { sanitizeApiKey } from './utils';
+import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
+
+export const IFLOW_PROVIDER_ID: ProviderId = 'iflow';
+export const IFLOW_BASE_URL = 'http://localhost:4010/proxy/iflow';
+
+const FALLBACK_IFLOW_MODEL = 'TBStars2-200B-A13B';
+const IFLOW_MODEL_FROM_ENV = process.env.IFLOW_MODEL;
+const DEFAULT_IFLOW_MODEL =
+  IFLOW_MODEL_FROM_ENV && IFLOW_MODEL_FROM_ENV !== 'undefined'
+    ? IFLOW_MODEL_FROM_ENV
+    : FALLBACK_IFLOW_MODEL;
+
+const IFLOW_MODELS = Array.from(
+  new Set([DEFAULT_IFLOW_MODEL, FALLBACK_IFLOW_MODEL, ...IFLOW_MODEL_CATALOG])
+);
+
+const DEFAULT_IFLOW_API_KEY = sanitizeApiKey(process.env.IFLOW_API_KEY);
+
+const resolveBaseUrl = (value: string): string => {
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
+  }
+  if (typeof window !== 'undefined') {
+    return new URL(value, window.location.origin).toString();
+  }
+  return value;
+};
+
+export const getDefaultIflowBaseUrl = (): string => {
+  const envOverride = process.env.IFLOW_BASE_URL;
+  if (envOverride && envOverride !== 'undefined') {
+    return resolveBaseUrl(envOverride);
+  }
+  return resolveBaseUrl(IFLOW_BASE_URL);
+};
+
+class IflowProvider extends OpenAIStyleProviderBase implements ProviderChat {
+  private readonly id: ProviderId = IFLOW_PROVIDER_ID;
+  private apiKey?: string;
+  private client: OpenAI | null = null;
+  private modelName: string;
+  private baseUrl: string;
+  private tavilyConfig?: TavilyConfig;
+  constructor() {
+    super();
+    this.apiKey = DEFAULT_IFLOW_API_KEY;
+    this.modelName = iflowProviderDefinition.defaultModel;
+    this.baseUrl = getDefaultIflowBaseUrl();
+    this.tavilyConfig = getDefaultTavilyConfig();
+  }
+
+  private getClient(): OpenAI {
+    const keyToUse = this.apiKey ?? DEFAULT_IFLOW_API_KEY;
+    if (!keyToUse) {
+      throw new Error('Missing IFLOW_API_KEY');
+    }
+    if (!this.client) {
+      this.client = new OpenAI({
+        apiKey: keyToUse,
+        baseURL: this.baseUrl,
+        dangerouslyAllowBrowser: true,
+      });
+    }
+    return this.client;
+  }
+
+  private buildTools(): OpenAI.Chat.Completions.ChatCompletionTool[] | undefined {
+    return buildOpenAITavilyTools(this.tavilyConfig);
+  }
+
+  getId(): ProviderId {
+    return this.id;
+  }
+
+  getModelName(): string {
+    return this.modelName;
+  }
+
+  setModelName(model: string): void {
+    const nextModel = model.trim() || iflowProviderDefinition.defaultModel;
+    if (nextModel !== this.modelName) {
+      this.modelName = nextModel;
+    }
+  }
+
+  getApiKey(): string | undefined {
+    return this.apiKey;
+  }
+
+  setApiKey(apiKey?: string): void {
+    const nextKey = sanitizeApiKey(apiKey) ?? DEFAULT_IFLOW_API_KEY;
+    if (nextKey !== this.apiKey) {
+      this.apiKey = nextKey;
+      this.client = null;
+    }
+  }
+
+  getBaseUrl(): string | undefined {
+    return this.baseUrl;
+  }
+
+  setBaseUrl(baseUrl?: string): void {
+    const nextUrl = baseUrl?.trim();
+    if (nextUrl && nextUrl !== this.baseUrl) {
+      this.baseUrl = resolveBaseUrl(nextUrl);
+      this.client = null;
+    }
+  }
+
+  getTavilyConfig(): TavilyConfig | undefined {
+    return this.tavilyConfig;
+  }
+
+  setTavilyConfig(config?: TavilyConfig): void {
+    this.tavilyConfig = normalizeTavilyConfig(config);
+  }
+
+  async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {
+    const client = this.getClient();
+
+    const userMessage: ChatMessage = {
+      id: `iflow-user-${Date.now()}`,
+      role: Role.User,
+      text: message,
+      timestamp: Date.now(),
+    };
+
+    const nextHistory = [...this.history, userMessage];
+    const messages = this.buildMessages(nextHistory, this.id, this.modelName);
+
+    let fullResponse = '';
+
+    try {
+      const tools = this.buildTools();
+      let initialResponse: OpenAI.Chat.Completions.ChatCompletion | null = null;
+      if (tools) {
+        initialResponse = await client.chat.completions.create({
+          model: this.modelName,
+          messages,
+          tools,
+          tool_choice: 'auto',
+          stream: false,
+        });
+      }
+
+      const toolCalls =
+        (initialResponse?.choices?.[0]?.message?.tool_calls as Array<{
+          id: string;
+          function?: { name?: string; arguments?: string };
+        }>) ?? [];
+
+      if (!toolCalls || toolCalls.length === 0) {
+        const stream = (await client.chat.completions.create({
+          model: this.modelName,
+          messages,
+          stream: true,
+        })) as unknown as AsyncIterable<{
+          choices?: Array<{
+            delta?: {
+              content?: string;
+              reasoning_content?: string;
+              reasoning_text?: string;
+              reasoning?: string;
+            };
+            message?: {
+              content?: string;
+              reasoning_content?: string;
+              reasoning_text?: string;
+              reasoning?: string;
+            };
+          }>;
+        }>;
+
+        for await (const chunk of stream) {
+          const reasoningDelta =
+            chunk.choices?.[0]?.delta?.reasoning_content ??
+            chunk.choices?.[0]?.delta?.reasoning_text ??
+            chunk.choices?.[0]?.delta?.reasoning ??
+            chunk.choices?.[0]?.message?.reasoning_content ??
+            chunk.choices?.[0]?.message?.reasoning_text ??
+            chunk.choices?.[0]?.message?.reasoning;
+          if (reasoningDelta) {
+            yield `<think>${reasoningDelta}</think>`;
+          }
+
+          const contentDelta =
+            chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content;
+          if (contentDelta) {
+            fullResponse += contentDelta;
+            yield contentDelta;
+          }
+        }
+      } else {
+        const toolMessages = await this.buildToolMessages(toolCalls, this.tavilyConfig);
+
+        const followupMessages = [
+          ...messages,
+          {
+            role: 'assistant' as const,
+            content: initialResponse?.choices?.[0]?.message?.content ?? null,
+            tool_calls: toolCalls,
+          },
+          ...toolMessages,
+        ];
+
+        const stream = (await client.chat.completions.create({
+          model: this.modelName,
+          messages: followupMessages as any,
+          stream: true,
+        })) as unknown as AsyncIterable<{
+          choices?: Array<{
+            delta?: {
+              content?: string;
+              reasoning_content?: string;
+              reasoning_text?: string;
+              reasoning?: string;
+            };
+            message?: {
+              content?: string;
+              reasoning_content?: string;
+              reasoning_text?: string;
+              reasoning?: string;
+            };
+          }>;
+        }>;
+
+        for await (const chunk of stream) {
+          const reasoningDelta =
+            chunk.choices?.[0]?.delta?.reasoning_content ??
+            chunk.choices?.[0]?.delta?.reasoning_text ??
+            chunk.choices?.[0]?.delta?.reasoning ??
+            chunk.choices?.[0]?.message?.reasoning_content ??
+            chunk.choices?.[0]?.message?.reasoning_text ??
+            chunk.choices?.[0]?.message?.reasoning;
+          if (reasoningDelta) {
+            yield `<think>${reasoningDelta}</think>`;
+          }
+
+          const contentDelta =
+            chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content;
+          if (contentDelta) {
+            fullResponse += contentDelta;
+            yield contentDelta;
+          }
+        }
+      }
+
+      const modelMessage: ChatMessage = {
+        id: `iflow-model-${Date.now()}`,
+        role: Role.Model,
+        text: fullResponse,
+        timestamp: Date.now(),
+      };
+
+      this.history = [...nextHistory, modelMessage];
+    } catch (error) {
+      console.error('Error in iFlow stream:', error);
+      throw error;
+    }
+  }
+}
+
+export const iflowProviderDefinition: ProviderDefinition = {
+  id: IFLOW_PROVIDER_ID,
+  models: IFLOW_MODELS,
+  defaultModel: DEFAULT_IFLOW_MODEL,
+  create: () => new IflowProvider(),
+};

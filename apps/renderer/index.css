@@ -1,0 +1,257 @@
+@import 'tailwindcss';
+
+:root {
+  --bg-0: #09090b;
+  --bg-1: #0b0b0d;
+  --bg-2: #18181b;
+  --ink-1: #f4f4f5;
+  --ink-2: #e4e4e7;
+  --ink-3: #a1a1aa;
+  --line-1: #27272a;
+  --accent: #f4f4f5;
+  --accent-strong: #ffffff;
+  --shadow-1: 0 18px 48px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 10px 28px rgba(0, 0, 0, 0.32);
+  --radius-1: 12px;
+  --radius-2: 16px;
+  --radius-3: 20px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  background-color: var(--bg-0);
+  background: var(--bg-0);
+  color: var(--ink-1);
+}
+
+body {
+  font-family:
+    'IBM Plex Sans', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans', 'Yu Gothic',
+    system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
+  -webkit-font-smoothing: antialiased;
+}
+
+body,
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+  font-size: inherit;
+  font-synthesis: none;
+}
+
+::selection {
+  background: #3f3f46;
+  color: #ffffff;
+}
+
+body.electron {
+  padding-top: 0;
+}
+
+.app-shell {
+  padding-top: 0;
+  background: transparent;
+}
+
+body.electron .chat-main {
+  padding-top: 36px;
+}
+
+.titlebar {
+  position: fixed;
+  top: 0;
+  left: 18rem;
+  right: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-0);
+  z-index: 40;
+  -webkit-app-region: drag;
+  border-bottom: none;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.app-shell {
+  display: flex;
+}
+
+.app-shell .sidebar {
+  flex: 0 0 18rem;
+}
+
+.app-shell > :not(.sidebar) {
+  flex: 1 1 auto;
+}
+
+.titlebar-drag {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
+.titlebar-title {
+  font-size: 12px;
+  color: var(--ink-2);
+  opacity: 0.8;
+}
+
+.titlebar-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-btn {
+  width: 36px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--ink-2);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.titlebar-btn:hover {
+  background: #1a1d20;
+}
+
+.titlebar-btn-close:hover {
+  background: #9f2f2f;
+  color: #ffffff;
+}
+
+select option {
+  background-color: var(--bg-2);
+  color: var(--ink-1);
+}
+
+input,
+textarea,
+select {
+  background-image: none;
+  box-shadow: none;
+  filter: none;
+}
+
+input:not([type='checkbox']),
+textarea,
+select {
+  appearance: none;
+}
+
+/* Hide browser built-in password reveal/clear buttons (keep our custom icons) */
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+  display: none;
+}
+
+/* Utility: hide scrollbars while keeping scroll behavior */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2c333a;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a424a;
+}
+
+/* Markdown Styles */
+.prose pre {
+  padding: 0;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+
+.prose code {
+  background-color: rgba(216, 210, 198, 0.1);
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family:
+    'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+}
+
+.prose pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* Loading Animation */
+@keyframes loading-scan {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-loading-scan {
+  animation: loading-scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes soft-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes soft-fade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.fx-soft-rise {
+  animation: soft-rise 220ms ease-out both;
+}
+
+.fx-soft-fade {
+  animation: soft-fade 180ms ease-out both;
+}
