@@ -50,6 +50,7 @@ const providerMeta: Record<
     supportsBaseUrl: true,
     supportsCustomHeaders: true,
   },
+  ollama: { label: 'Ollama', supportsBaseUrl: true },
   xai: { label: 'xAI', supportsTavily: true },
   gemini: { label: 'Gemini', supportsTavily: true },
   deepseek: { label: 'DeepSeek', supportsTavily: true },
@@ -233,6 +234,11 @@ const Dropdown: React.FC<DropdownProps> = ({
     </div>
   );
 };
+
+const inputBaseClass =
+  'rounded-md bg-[var(--bg-2)] [background-image:none] shadow-none px-2.5 py-1.5 text-sm font-sans text-[var(--ink-1)] outline-none ring-1 ring-[var(--line-1)] focus:ring-[color:var(--ink-3)]';
+const fullInputClass = `w-full ${inputBaseClass}`;
+const smInputClass = `w-full sm:w-72 ${inputBaseClass}`;
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -418,7 +424,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 value={localModelName}
                 onChange={(e) => setLocalModelName(e.target.value)}
                 placeholder={getProviderDefaultModel(localProviderId)}
-                className="w-full sm:w-72 rounded-md bg-[var(--bg-2)] [background-image:none] shadow-none px-2.5 py-1.5 text-sm font-sans text-[var(--ink-1)] outline-none ring-1 ring-[var(--line-1)] focus:ring-[color:var(--ink-3)]"
+                className={smInputClass}
                 autoComplete="off"
               />
             </div>
@@ -435,7 +441,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   type={showApiKey ? 'text' : 'password'}
                   value={localApiKey}
                   onChange={(e) => setLocalApiKey(e.target.value)}
-                  className="w-full rounded-md bg-[var(--bg-2)] [background-image:none] shadow-none px-2.5 py-1.5 pr-20 text-sm font-sans text-[var(--ink-1)] outline-none ring-1 ring-[var(--line-1)] focus:ring-[color:var(--ink-3)]"
+                  className={`${fullInputClass} pr-20`}
                   autoComplete="off"
                 />
                 <div className="absolute inset-y-0 right-2 flex items-center gap-1.5">
@@ -473,7 +479,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={localBaseUrl ?? ''}
                     onChange={(e) => setLocalBaseUrl(e.target.value)}
                     placeholder="https://api.example.com/v1"
-                    className="w-full sm:w-72 rounded-md bg-[var(--bg-2)] [background-image:none] shadow-none px-2.5 py-1.5 text-sm font-sans text-[var(--ink-1)] outline-none ring-1 ring-[var(--line-1)] focus:ring-[color:var(--ink-3)]"
+                    className={smInputClass}
                     autoComplete="off"
                   />
                 </div>
@@ -509,7 +515,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         value={header.key}
                         onChange={(e) => updateHeaderKey(index, e.target.value)}
                         placeholder={t('settings.modal.customHeaders.key')}
-                        className="w-full rounded-md bg-[var(--bg-2)] [background-image:none] shadow-none px-2.5 py-1.5 text-sm font-sans text-[var(--ink-1)] outline-none ring-1 ring-[var(--line-1)] focus:ring-[color:var(--ink-3)]"
+                        className={fullInputClass}
                         autoComplete="off"
                       />
                       <input
@@ -517,7 +523,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         value={header.value}
                         onChange={(e) => updateHeaderValue(index, e.target.value)}
                         placeholder={t('settings.modal.customHeaders.value')}
-                        className="w-full rounded-md bg-[var(--bg-2)] [background-image:none] shadow-none px-2.5 py-1.5 text-sm font-sans text-[var(--ink-1)] outline-none ring-1 ring-[var(--line-1)] focus:ring-[color:var(--ink-3)]"
+                        className={fullInputClass}
                         autoComplete="off"
                       />
                       <button
@@ -553,7 +559,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       type={showTavilyKey ? 'text' : 'password'}
                       value={localTavily.apiKey ?? ''}
                       onChange={(e) => updateTavilyField('apiKey', e.target.value)}
-                      className="w-full rounded-md bg-[var(--bg-2)] [background-image:none] shadow-none px-2.5 py-1.5 pr-20 text-sm font-sans text-[var(--ink-1)] outline-none ring-1 ring-[var(--line-1)] focus:ring-[color:var(--ink-3)]"
+                      className={`${fullInputClass} pr-20`}
                       autoComplete="off"
                     />
                     <div className="absolute inset-y-0 right-2 flex items-center gap-1.5">
@@ -588,7 +594,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="text"
                     value={localTavily.projectId ?? ''}
                     onChange={(e) => updateTavilyField('projectId', e.target.value)}
-                    className="w-full rounded-md bg-[var(--bg-2)] [background-image:none] shadow-none px-2.5 py-1.5 text-sm font-sans text-[var(--ink-1)] outline-none ring-1 ring-[var(--line-1)] focus:ring-[color:var(--ink-3)]"
+                    className={fullInputClass}
                     autoComplete="off"
                   />
                 </div>
@@ -627,7 +633,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                           e.target.value ? Number(e.target.value) : undefined
                         )
                       }
-                      className="w-full rounded-md bg-[var(--bg-2)] [background-image:none] shadow-none px-2.5 py-1.5 text-sm font-sans text-[var(--ink-1)] outline-none ring-1 ring-[var(--line-1)] focus:ring-[color:var(--ink-3)]"
+                      className={fullInputClass}
                     />
                   </div>
 

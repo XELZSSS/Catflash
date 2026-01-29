@@ -7,6 +7,7 @@ import { moonshotProviderDefinition } from './moonshotProvider';
 import { iflowProviderDefinition } from './iflowProvider';
 import { openaiProviderDefinition } from './openaiProvider';
 import { openaiCompatibleProviderDefinition } from './openaiCompatibleProvider';
+import { ollamaProviderDefinition } from './ollamaProvider';
 import { xaiProviderDefinition } from './xaiProvider';
 import { ProviderChat, ProviderDefinition } from './types';
 
@@ -14,6 +15,7 @@ const definitions: Record<ProviderId, ProviderDefinition> = {
   gemini: geminiProviderDefinition,
   openai: openaiProviderDefinition,
   'openai-compatible': openaiCompatibleProviderDefinition,
+  ollama: ollamaProviderDefinition,
   xai: xaiProviderDefinition,
   deepseek: deepseekProviderDefinition,
   glm: glmProviderDefinition,

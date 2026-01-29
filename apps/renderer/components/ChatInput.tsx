@@ -19,7 +19,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   onSend,
   disabled,
   isStreaming,
-  onStop: _onStop,
+  onStop,
   containerClassName,
   searchEnabled,
   searchAvailable,
@@ -28,6 +28,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const draftSaveTimerRef = useRef<number | null>(null);
+
+  const clearDraftTimer = () => {
+    if (draftSaveTimerRef.current !== null) {
+      window.clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
     try {
@@ -41,11 +48,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (draftSaveTimerRef.current !== null) {
-        window.clearTimeout(draftSaveTimerRef.current);
-      }
-    };
+    return () => clearDraftTimer();
   }, []);
 
   const adjustHeight = () => {
@@ -63,16 +66,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     setInput(newValue);
-    if (draftSaveTimerRef.current !== null) {
-      window.clearTimeout(draftSaveTimerRef.current);
-    }
+    clearDraftTimer();
     draftSaveTimerRef.current = window.setTimeout(() => {
       try {
         localStorage.setItem(DRAFT_STORAGE_KEY, newValue);
       } catch (error) {
         console.warn('Failed to save draft to storage:', error);
       }
-      draftSaveTimerRef.current = null;
+      clearDraftTimer();
     }, 350);
   };
 
@@ -81,16 +82,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
     if (!input.trim() || (disabled && !isStreaming)) return;
 
     if (isStreaming) {
-      _onStop();
+      onStop();
       return;
     }
 
     onSend(input);
     setInput('');
-    if (draftSaveTimerRef.current !== null) {
-      window.clearTimeout(draftSaveTimerRef.current);
-      draftSaveTimerRef.current = null;
-    }
+    clearDraftTimer();
     try {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
     } catch (error) {
@@ -139,7 +137,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           <button
             onClick={() => {
               if (isStreaming) {
-                _onStop();
+                onStop();
                 return;
               }
               handleSubmit();

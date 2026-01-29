@@ -5,6 +5,7 @@ import { getDefaultMinimaxBaseUrl } from './minimaxProvider';
 import { getDefaultMoonshotBaseUrl } from './moonshotProvider';
 import { getDefaultIflowBaseUrl } from './iflowProvider';
 import { getDefaultOpenAICompatibleBaseUrl } from './openaiCompatibleProvider';
+import { getDefaultOllamaBaseUrl } from './ollamaProvider';
 import { getDefaultTavilyConfig } from './tavily';
 import { sanitizeApiKey } from './utils';
 
@@ -34,6 +35,7 @@ const resolveDefaultBaseUrl = (providerId: ProviderId): string | undefined => {
   if (providerId === 'glm') return getDefaultGlmBaseUrl();
   if (providerId === 'iflow') return getDefaultIflowBaseUrl();
   if (providerId === 'openai-compatible') return getDefaultOpenAICompatibleBaseUrl();
+  if (providerId === 'ollama') return getDefaultOllamaBaseUrl();
   return undefined;
 };
 
@@ -43,6 +45,9 @@ export const getEnvApiKey = (providerId: ProviderId): string | undefined => {
   }
   if (providerId === 'openai-compatible') {
     return sanitizeApiKey(process.env.OPENAI_COMPATIBLE_API_KEY);
+  }
+  if (providerId === 'ollama') {
+    return sanitizeApiKey(process.env.OLLAMA_API_KEY);
   }
   if (providerId === 'xai') {
     return sanitizeApiKey(process.env.XAI_API_KEY);

@@ -1,32 +1,33 @@
 import React, { useEffect, useState } from 'react';
 const WinIcon = ({ type }: { type: 'min' | 'max' | 'close' }) => {
-  if (type === 'min') {
-    return (
-      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-        <rect x="1" y="5" width="8" height="1" fill="currentColor" />
-      </svg>
-    );
+  switch (type) {
+    case 'min':
+      return (
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+          <rect x="1" y="5" width="8" height="1" fill="currentColor" />
+        </svg>
+      );
+    case 'max':
+      return (
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+          <rect
+            x="1.5"
+            y="1.5"
+            width="7"
+            height="7"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1"
+          />
+        </svg>
+      );
+    default:
+      return (
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+          <path d="M2 2 L8 8 M8 2 L2 8" stroke="currentColor" strokeWidth="1" />
+        </svg>
+      );
   }
-  if (type === 'max') {
-    return (
-      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-        <rect
-          x="1.5"
-          y="1.5"
-          width="7"
-          height="7"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1"
-        />
-      </svg>
-    );
-  }
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-      <path d="M2 2 L8 8 M8 2 L2 8" stroke="currentColor" strokeWidth="1" />
-    </svg>
-  );
 };
 
 const isElectron = typeof window !== 'undefined' && !!window.gero;

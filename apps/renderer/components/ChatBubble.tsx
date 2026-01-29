@@ -20,8 +20,6 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, isStreaming = false })
   const isError = message.isError;
   const hasText = message.text && message.text.length > 0;
 
-  const displayContent = message.text;
-
   const reasoningText = !isUser ? (message.reasoning?.trim() ?? '') : '';
   const hasReasoning = reasoningText.length > 0;
 
@@ -99,7 +97,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, isStreaming = false })
                 {!hasText && isStreaming && <TypingIndicator />}
                 {hasText && (
                   <p className="whitespace-pre-wrap break-words leading-relaxed text-sm text-[var(--ink-2)]">
-                    {displayContent}
+                    {message.text}
                   </p>
                 )}
               </div>

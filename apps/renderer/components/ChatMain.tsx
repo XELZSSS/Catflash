@@ -46,6 +46,7 @@ const ChatMain: React.FC<ChatMainProps> = ({
       onToggleSearch={onToggleSearch}
     />
   );
+  const hasMessages = messages.length > 0;
 
   return (
     <main className="chat-main flex-1 flex flex-col h-full relative bg-transparent pt-0">
@@ -68,7 +69,7 @@ const ChatMain: React.FC<ChatMainProps> = ({
         className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide scroll-smooth pt-16 lg:pt-0"
       >
         <div className="mx-auto w-full max-w-[min(64rem,100%)] px-4 py-8 pb-40 min-h-full flex flex-col">
-          {messages.length === 0 ? (
+          {!hasMessages ? (
             <WelcomeScreen
               input={React.cloneElement(chatInput, {
                 containerClassName: 'px-0 pb-0 max-w-[min(80rem,100%)]',
@@ -93,9 +94,7 @@ const ChatMain: React.FC<ChatMainProps> = ({
       </div>
 
       {/* Input Area */}
-      {messages.length > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 pb-4">{chatInput}</div>
-      )}
+      {hasMessages && <div className="absolute bottom-0 left-0 right-0 z-20 pb-4">{chatInput}</div>}
     </main>
   );
 };

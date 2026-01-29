@@ -12,6 +12,8 @@ export const OPENAI_MODEL_CATALOG = [
 
 export const OPENAI_COMPATIBLE_MODEL_CATALOG: string[] = [];
 
+export const OLLAMA_MODEL_CATALOG: string[] = [];
+
 export const DEEPSEEK_MODEL_CATALOG = ['deepseek-reasoner'];
 
 export const GEMINI_MODEL_CATALOG = [

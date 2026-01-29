@@ -67,6 +67,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLanguageChange,
   onOpenSettings,
 }) => {
+  const sortButtonClass = (active: boolean) =>
+    `p-1.5 rounded-md transition-all ${
+      active
+        ? 'bg-[var(--bg-2)] text-[var(--ink-1)] shadow-sm'
+        : 'text-[var(--ink-3)] hover:text-[var(--ink-2)]'
+    }`;
+
   return (
     <aside
       className={`sidebar fixed lg:relative z-30 w-72 h-full bg-[var(--bg-1)] border-r border-[var(--line-1)] transform transition-transform duration-300 ease-in-out ${
@@ -104,14 +111,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex rounded-lg p-0.5 gap-0.5 ring-1 ring-[var(--line-1)]">
             <button
               onClick={() => onSortByChange('updatedAt')}
-              className={`p-1.5 rounded-md transition-all ${sortBy === 'updatedAt' ? 'bg-[var(--bg-2)] text-[var(--ink-1)] shadow-sm' : 'text-[var(--ink-3)] hover:text-[var(--ink-2)]'}`}
+              className={sortButtonClass(sortBy === 'updatedAt')}
               title={t('sidebar.sort.updatedAtTitle')}
             >
               <Clock size={14} />
             </button>
             <button
               onClick={() => onSortByChange('createdAt')}
-              className={`p-1.5 rounded-md transition-all ${sortBy === 'createdAt' ? 'bg-[var(--bg-2)] text-[var(--ink-1)] shadow-sm' : 'text-[var(--ink-3)] hover:text-[var(--ink-2)]'}`}
+              className={sortButtonClass(sortBy === 'createdAt')}
               title={t('sidebar.sort.createdAtTitle')}
             >
               <Calendar size={14} />

@@ -22,6 +22,7 @@ export type ProviderId =
   | 'gemini'
   | 'openai'
   | 'openai-compatible'
+  | 'ollama'
   | 'xai'
   | 'deepseek'
   | 'glm'
