@@ -43,10 +43,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, isStreaming = false })
   }, [isStreaming, hasReasoning]);
 
   return (
-    <div
-      className="flex w-full mb-8 justify-center fx-soft-rise"
-      style={{ contentVisibility: 'auto', containIntrinsicSize: '400px' }}
-    >
+    <div className="flex w-full mb-8 justify-center fx-soft-rise">
       <div
         className={`flex min-w-0 w-full max-w-[min(64rem,100%)] gap-4 ${
           isUser ? 'justify-end flex-row pr-3' : 'justify-start flex-row'

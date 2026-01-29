@@ -5,7 +5,7 @@ import { ProviderChat, ProviderDefinition } from './types';
 import { buildSystemInstruction } from './prompts';
 import { OPENAI_MODEL_CATALOG } from './models';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
-import { sanitizeApiKey } from './utils';
+import { getMaxToolCallRounds, sanitizeApiKey } from './utils';
 
 export const OPENAI_PROVIDER_ID: ProviderId = 'openai';
 const FALLBACK_OPENAI_MODEL = 'gpt-5.2';
@@ -202,42 +202,55 @@ class OpenAIProvider extends OpenAIStyleProviderBase implements ProviderChat {
           }
         }
       } else {
-        const messages = this.buildMessages(nextHistory, this.id, this.modelName);
-        const initialResponse = await client.chat.completions.create({
-          model: this.modelName,
-          messages,
-          tools,
-          tool_choice: 'auto',
-          stream: false,
-        });
+        let workingMessages = this.buildMessages(nextHistory, this.id, this.modelName);
+        let preflightMessage:
+          | (OpenAI.Chat.Completions.ChatCompletionMessage & {
+              tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }>;
+            })
+          | null = null;
+        let hadToolCalls = false;
+        const maxToolRounds = getMaxToolCallRounds();
 
-        const toolCalls =
-          (initialResponse.choices?.[0]?.message?.tool_calls as Array<{
-            id: string;
-            function?: { name?: string; arguments?: string };
-          }>) ?? [];
+        for (let round = 0; round < maxToolRounds; round += 1) {
+          const initialResponse = await client.chat.completions.create({
+            model: this.modelName,
+            messages: workingMessages,
+            tools,
+            tool_choice: 'auto',
+            stream: false,
+          });
 
-        if (!toolCalls || toolCalls.length === 0) {
-          if (initialResponse.choices?.[0]?.message?.content) {
-            fullResponse = initialResponse.choices[0].message.content;
-            yield fullResponse;
+          preflightMessage = initialResponse.choices?.[0]?.message ?? null;
+          const toolCalls =
+            (preflightMessage?.tool_calls as Array<{
+              id: string;
+              function?: { name?: string; arguments?: string };
+            }>) ?? [];
+
+          if (!toolCalls.length) {
+            break;
           }
-        } else {
-          const toolMessages = await this.buildToolMessages(toolCalls, this.tavilyConfig);
 
-          const followupMessages = [
-            ...messages,
+          hadToolCalls = true;
+          const toolMessages = await this.buildToolMessages(toolCalls, this.tavilyConfig);
+          workingMessages = [
+            ...workingMessages,
             {
               role: 'assistant' as const,
-              content: initialResponse.choices?.[0]?.message?.content ?? null,
+              content: preflightMessage?.content ?? null,
               tool_calls: toolCalls,
             },
             ...toolMessages,
           ];
+        }
 
+        if (!hadToolCalls && preflightMessage?.content) {
+          fullResponse = preflightMessage.content;
+          yield fullResponse;
+        } else {
           const stream = (await client.chat.completions.create({
             model: this.modelName,
-            messages: followupMessages as any,
+            messages: workingMessages as any,
             stream: true,
           })) as unknown as AsyncIterable<{
             choices?: Array<{

@@ -2,7 +2,7 @@ import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
 import { ProviderChat, ProviderDefinition } from './types';
 import { buildSystemInstruction } from './prompts';
 import { GLM_MODEL_CATALOG } from './models';
-import { sanitizeApiKey } from './utils';
+import { getMaxToolCallRounds, sanitizeApiKey } from './utils';
 import {
   buildOpenAITavilyTools,
   callTavilySearch,
@@ -169,30 +169,37 @@ class GlmProvider implements ProviderChat {
     };
 
     if (tools) {
-      const preflight = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.getApiKeyValue()}`,
-        },
-        body: JSON.stringify({ ...payload, stream: false }),
-      });
+      let workingMessages = messages as any;
+      const maxToolRounds = getMaxToolCallRounds();
+      for (let round = 0; round < maxToolRounds; round += 1) {
+        const preflight = await fetch(this.baseUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.getApiKeyValue()}`,
+          },
+          body: JSON.stringify({ ...payload, messages: workingMessages, stream: false }),
+        });
 
-      if (!preflight.ok) {
-        throw new Error(`GLM tool preflight failed: ${preflight.status}`);
-      }
+        if (!preflight.ok) {
+          throw new Error(`GLM tool preflight failed: ${preflight.status}`);
+        }
 
-      const preflightData = (await preflight.json()) as {
-        choices?: Array<{
-          message?: {
-            content?: string;
-            tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }>;
-          };
-        }>;
-      };
+        const preflightData = (await preflight.json()) as {
+          choices?: Array<{
+            message?: {
+              content?: string;
+              tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }>;
+            };
+          }>;
+        };
 
-      const toolCalls = preflightData.choices?.[0]?.message?.tool_calls ?? [];
-      if (toolCalls.length > 0) {
+        const toolCalls = preflightData.choices?.[0]?.message?.tool_calls ?? [];
+        if (!toolCalls.length) {
+          payload.messages = workingMessages;
+          break;
+        }
+
         const toolResults = await Promise.all(
           toolCalls.map(async (call) => {
             if (call.function?.name !== 'tavily_search') {
@@ -238,15 +245,17 @@ class GlmProvider implements ProviderChat {
           content: result.content,
         }));
 
-        payload.messages = [
-          ...messages,
+        workingMessages = [
+          ...workingMessages,
           {
             role: 'assistant',
             content: preflightData.choices?.[0]?.message?.content ?? null,
             tool_calls: toolCalls,
           },
           ...toolMessages,
-        ] as any;
+        ];
+
+        payload.messages = workingMessages;
       }
     }
 

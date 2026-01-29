@@ -34,6 +34,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   obsidianWriteDisabled,
 }) => {
   const [input, setInput] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const draftSaveTimerRef = useRef<number | null>(null);
 
@@ -69,7 +70,34 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   useEffect(() => {
     adjustHeight();
+    requestAnimationFrame(() => {
+      if (!containerRef.current) return;
+      document.documentElement.style.setProperty(
+        '--chat-input-height',
+        `${containerRef.current.offsetHeight}px`
+      );
+    });
   }, [input]);
+
+  useEffect(() => {
+    const updateHeight = () => {
+      if (!containerRef.current) return;
+      document.documentElement.style.setProperty(
+        '--chat-input-height',
+        `${containerRef.current.offsetHeight}px`
+      );
+    };
+    updateHeight();
+    const observer = new ResizeObserver(() => updateHeight());
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+    window.addEventListener('resize', updateHeight);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
@@ -119,7 +147,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }`;
 
   return (
-    <div className={`mx-auto w-full max-w-[min(64rem,100%)] px-4 pb-6 ${containerClassName ?? ''}`}>
+    <div
+      ref={containerRef}
+      className={`mx-auto w-full max-w-[min(64rem,100%)] px-4 pb-6 ${containerClassName ?? ''}`}
+    >
       <div className="relative flex items-end gap-2 bg-[var(--bg-2)] [background-image:none] border border-[var(--line-1)] rounded-[var(--radius-2)] p-2 shadow-none transition-all duration-200">
         <textarea
           ref={textareaRef}

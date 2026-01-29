@@ -21,28 +21,16 @@ export const useStreamingMessages = ({
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const autoScrollRef = useRef(true);
   const stopRequestedRef = useRef(false);
-
-  const isNearBottom = useCallback(() => {
-    const el = messagesContainerRef.current;
-    if (!el) return true;
-    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    return distanceToBottom < 80;
-  }, []);
-
-  const handleMessagesScroll = useCallback(() => {
-    autoScrollRef.current = isNearBottom();
-  }, [isNearBottom]);
-
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth', force = false) => {
-    const el = messagesContainerRef.current;
-    if (!el) {
-      messagesEndRef.current?.scrollIntoView({ behavior });
+    if (!force && !messagesEndRef.current && messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior,
+      });
       return;
     }
-    if (!force && !autoScrollRef.current) return;
-    el.scrollTo({ top: el.scrollHeight, behavior });
+    messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
   }, []);
 
   const updateMessageById = useCallback(
@@ -82,7 +70,6 @@ export const useStreamingMessages = ({
       setMessages((prev) => [...prev, userMessage]);
       setIsStreaming(true);
       setIsLoading(true);
-      autoScrollRef.current = true;
 
       try {
         const modelMessageId = uuidv4();
@@ -205,10 +192,8 @@ ${rawMessage}
   return {
     messagesEndRef,
     messagesContainerRef,
-    autoScrollRef,
     isStreaming,
     isLoading,
-    handleMessagesScroll,
     scrollToBottom,
     handleSendMessage,
     stopStreaming,

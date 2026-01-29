@@ -457,7 +457,6 @@ function App() {
         isLoading={streaming.isLoading}
         messagesContainerRef={streaming.messagesContainerRef}
         messagesEndRef={streaming.messagesEndRef}
-        onMessagesScroll={streaming.handleMessagesScroll}
         onSendMessage={streaming.handleSendMessage}
         onOpenSidebar={() => setIsSidebarOpen(true)}
         onStopStreaming={streaming.stopStreaming}

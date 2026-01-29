@@ -3,7 +3,7 @@ import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
 import { OpenAIStyleProviderBase } from './openaiBase';
 import { ProviderChat, ProviderDefinition } from './types';
 import { IFLOW_MODEL_CATALOG } from './models';
-import { sanitizeApiKey } from './utils';
+import { getMaxToolCallRounds, sanitizeApiKey } from './utils';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
 
 export const IFLOW_PROVIDER_ID: ProviderId = 'iflow';
@@ -138,27 +138,50 @@ class IflowProvider extends OpenAIStyleProviderBase implements ProviderChat {
 
     try {
       const tools = this.buildTools();
-      let initialResponse: OpenAI.Chat.Completions.ChatCompletion | null = null;
       if (tools) {
-        initialResponse = await client.chat.completions.create({
-          model: this.modelName,
-          messages,
-          tools,
-          tool_choice: 'auto',
-          stream: false,
-        });
-      }
+        let workingMessages = messages;
+        let preflightMessage:
+          | (OpenAI.Chat.Completions.ChatCompletionMessage & {
+              tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }>;
+            })
+          | null = null;
+        const maxToolRounds = getMaxToolCallRounds();
 
-      const toolCalls =
-        (initialResponse?.choices?.[0]?.message?.tool_calls as Array<{
-          id: string;
-          function?: { name?: string; arguments?: string };
-        }>) ?? [];
+        for (let round = 0; round < maxToolRounds; round += 1) {
+          const initialResponse = await client.chat.completions.create({
+            model: this.modelName,
+            messages: workingMessages,
+            tools,
+            tool_choice: 'auto',
+            stream: false,
+          });
 
-      if (!toolCalls || toolCalls.length === 0) {
+          preflightMessage = initialResponse?.choices?.[0]?.message ?? null;
+          const toolCalls =
+            (preflightMessage?.tool_calls as Array<{
+              id: string;
+              function?: { name?: string; arguments?: string };
+            }>) ?? [];
+
+          if (!toolCalls.length) {
+            break;
+          }
+
+          const toolMessages = await this.buildToolMessages(toolCalls, this.tavilyConfig);
+          workingMessages = [
+            ...workingMessages,
+            {
+              role: 'assistant' as const,
+              content: preflightMessage?.content ?? null,
+              tool_calls: toolCalls,
+            },
+            ...toolMessages,
+          ];
+        }
+
         const stream = (await client.chat.completions.create({
           model: this.modelName,
-          messages,
+          messages: workingMessages as any,
           stream: true,
         })) as unknown as AsyncIterable<{
           choices?: Array<{
@@ -197,21 +220,9 @@ class IflowProvider extends OpenAIStyleProviderBase implements ProviderChat {
           }
         }
       } else {
-        const toolMessages = await this.buildToolMessages(toolCalls, this.tavilyConfig);
-
-        const followupMessages = [
-          ...messages,
-          {
-            role: 'assistant' as const,
-            content: initialResponse?.choices?.[0]?.message?.content ?? null,
-            tool_calls: toolCalls,
-          },
-          ...toolMessages,
-        ];
-
         const stream = (await client.chat.completions.create({
           model: this.modelName,
-          messages: followupMessages as any,
+          messages,
           stream: true,
         })) as unknown as AsyncIterable<{
           choices?: Array<{

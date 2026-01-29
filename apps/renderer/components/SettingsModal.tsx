@@ -4,6 +4,12 @@ import { X, Save, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { ProviderId } from '../types';
 import { t } from '../utils/i18n';
 import { getProviderDefaultModel, listProviderIds } from '../services/providers/registry';
+import {
+  DEFAULT_MAX_TOOL_CALL_ROUNDS,
+  MAX_TOOL_CALL_ROUNDS,
+  MIN_TOOL_CALL_ROUNDS,
+  TOOL_CALL_MAX_ROUNDS_STORAGE_KEY,
+} from '../services/providers/utils';
 
 const MINIMAX_BASE_URL_INTL = 'http://localhost:4010/proxy/minimax-intl';
 const MINIMAX_BASE_URL_CN = 'http://localhost:4010/proxy/minimax-cn';
@@ -344,6 +350,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [obsidianSearchQuery, setObsidianSearchQuery] = useState('');
   const [obsidianSearchResults, setObsidianSearchResults] = useState<string[]>([]);
   const [obsidianSearchLoading, setObsidianSearchLoading] = useState(false);
+  const [toolCallMaxRounds, setToolCallMaxRounds] = useState<string>(() => {
+    if (typeof window === 'undefined') return String(DEFAULT_MAX_TOOL_CALL_ROUNDS);
+    const stored = window.localStorage.getItem(TOOL_CALL_MAX_ROUNDS_STORAGE_KEY);
+    return stored ?? String(DEFAULT_MAX_TOOL_CALL_ROUNDS);
+  });
   const ACTIVE_TAB_STORAGE_KEY = 'gemini_settings_active_tab';
   const [activeTab, setActiveTab] = useState<'provider' | 'search' | 'obsidian'>(() => {
     if (typeof window === 'undefined') return 'provider';
@@ -376,6 +387,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       setObsidianTestStatus('idle');
       setObsidianSearchQuery('');
       setObsidianSearchResults([]);
+      if (typeof window !== 'undefined') {
+        const stored = window.localStorage.getItem(TOOL_CALL_MAX_ROUNDS_STORAGE_KEY);
+        setToolCallMaxRounds(stored ?? String(DEFAULT_MAX_TOOL_CALL_ROUNDS));
+      } else {
+        setToolCallMaxRounds(String(DEFAULT_MAX_TOOL_CALL_ROUNDS));
+      }
       if (typeof window === 'undefined') {
         setActiveTab('provider');
       } else {
@@ -446,6 +463,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [activeTab]);
   const handleSave = () => {
+    const parsedRounds = Number.parseInt(toolCallMaxRounds, 10);
+    const normalizedRounds = Number.isNaN(parsedRounds)
+      ? null
+      : Math.min(Math.max(parsedRounds, MIN_TOOL_CALL_ROUNDS), MAX_TOOL_CALL_ROUNDS);
+    if (typeof window !== 'undefined') {
+      try {
+        if (normalizedRounds === null) {
+          window.localStorage.removeItem(TOOL_CALL_MAX_ROUNDS_STORAGE_KEY);
+        } else {
+          window.localStorage.setItem(TOOL_CALL_MAX_ROUNDS_STORAGE_KEY, String(normalizedRounds));
+        }
+      } catch (error) {
+        console.warn('Failed to persist tool call rounds:', error);
+      }
+    }
     onSave({
       providerId: localProviderId,
       modelName: localModelName,
@@ -660,6 +692,39 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={localModelName}
                       onChange={(e) => setLocalModelName(e.target.value)}
                       placeholder={getProviderDefaultModel(localProviderId)}
+                      className={smInputClass}
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <label className="text-xs font-medium text-[var(--ink-2)]">
+                      {t('settings.modal.toolCallRounds')}
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={toolCallMaxRounds}
+                      onChange={(event) => {
+                        const nextValue = event.target.value.replace(/[^\d]/g, '');
+                        setToolCallMaxRounds(nextValue);
+                      }}
+                      onBlur={() => {
+                        const parsed = Number.parseInt(toolCallMaxRounds, 10);
+                        if (Number.isNaN(parsed)) {
+                          setToolCallMaxRounds('');
+                          return;
+                        }
+                        const clamped = Math.min(
+                          Math.max(parsed, MIN_TOOL_CALL_ROUNDS),
+                          MAX_TOOL_CALL_ROUNDS
+                        );
+                        setToolCallMaxRounds(String(clamped));
+                      }}
+                      placeholder={String(DEFAULT_MAX_TOOL_CALL_ROUNDS)}
                       className={smInputClass}
                       autoComplete="off"
                     />

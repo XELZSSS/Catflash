@@ -12,7 +12,6 @@ type ChatMainProps = {
   isLoading: boolean;
   messagesContainerRef: React.RefObject<HTMLDivElement>;
   messagesEndRef: React.RefObject<HTMLDivElement>;
-  onMessagesScroll: () => void;
   onSendMessage: (text: string) => void;
   onOpenSidebar: () => void;
   onStopStreaming: () => void;
@@ -31,7 +30,6 @@ const ChatMain: React.FC<ChatMainProps> = ({
   isLoading,
   messagesContainerRef,
   messagesEndRef,
-  onMessagesScroll,
   onSendMessage,
   onOpenSidebar,
   onStopStreaming,
@@ -77,10 +75,13 @@ const ChatMain: React.FC<ChatMainProps> = ({
       {/* Messages Container */}
       <div
         ref={messagesContainerRef}
-        onScroll={onMessagesScroll}
         className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide scroll-smooth pt-16 lg:pt-0"
+        style={{ scrollPaddingBottom: 'calc(var(--chat-input-height, 120px) + 8px)' }}
       >
-        <div className="mx-auto w-full max-w-[min(64rem,100%)] px-4 py-8 pb-40 min-h-full flex flex-col">
+        <div
+          className="mx-auto w-full max-w-[min(64rem,100%)] px-4 py-8 min-h-full flex flex-col"
+          style={{ paddingBottom: 'calc(var(--chat-input-height, 120px) + 8px)' }}
+        >
           {!hasMessages ? (
             <WelcomeScreen
               input={React.cloneElement(chatInput, {
@@ -106,7 +107,7 @@ const ChatMain: React.FC<ChatMainProps> = ({
       </div>
 
       {/* Input Area */}
-      {hasMessages && <div className="absolute bottom-0 left-0 right-0 z-20 pb-4">{chatInput}</div>}
+      {hasMessages && <div className="absolute bottom-0 left-0 right-0 z-20">{chatInput}</div>}
     </main>
   );
 };
