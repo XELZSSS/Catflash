@@ -17,4 +17,12 @@ contextBridge.exposeInMainWorld('gero', {
   },
   setTrayLanguage: (language) => ipcRenderer.invoke('tray:set-language', language),
   setTrayLabels: (labels) => ipcRenderer.invoke('tray:set-labels', labels),
+  obsidian: {
+    listMarkdown: (vaultPath) => ipcRenderer.invoke('obsidian:list-markdown', vaultPath),
+    getRecentNote: (vaultPath) => ipcRenderer.invoke('obsidian:get-recent-note', vaultPath),
+    readNote: (vaultPath, notePath) =>
+      ipcRenderer.invoke('obsidian:read-note', { vaultPath, notePath }),
+    writeNote: (vaultPath, notePath, content) =>
+      ipcRenderer.invoke('obsidian:write-note', { vaultPath, notePath, content }),
+  },
 });

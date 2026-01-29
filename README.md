@@ -3,13 +3,15 @@
   <h1>Catflash</h1>
 </div>
 
-Catflash 是一款 Windows 桌面聊天应用，支持多家模型供应商与可选搜索增强，适合日常对话与检索辅助。
+Catflash 是一款 Windows 桌面聊天应用，支持多家模型供应商、搜索增强与 Obsidian 协同写作，适合日常对话与检索辅助。
 
 ## 🚀 核心功能
 
 - 多模型供应商切换与模型配置
 - 可选搜索增强（搜索引擎）
 - 会话自动保存、搜索与排序
+- Obsidian 协同写作（读取/写回笔记）
+- 本地 Ollama 支持
 
 ## 🧱 技术栈
 
@@ -70,6 +72,33 @@ npm run dev
 - 默认 Base URL：`http://localhost:11434/v1/`
 - API Key：可留空（仅用于占位）
 - 模型名：填写本地 Ollama 模型名，例如 `llama3.2`
+
+### 🧠 Obsidian 协同写作
+
+Catflash 支持与 Obsidian 协同写作，可读取/写入笔记内容：
+
+- 模式一：Vault 文件（无需插件）
+  - 在设置中填写 Obsidian Vault 路径与笔记路径
+  - 支持读取选定笔记或最近编辑笔记
+- 模式二：插件 API（推荐）
+  - 安装 Obsidian Local REST API 插件并填写 API URL / API Key
+  - 支持读取当前打开的笔记或按搜索选择笔记
+
+写回策略支持：追加到末尾、插入到指定标题、覆盖整篇。
+
+插件参考链接：
+
+```
+https://github.com/coddingtonbear/obsidian-local-rest-api
+```
+
+插件启用步骤：
+
+1. 在 Obsidian 中安装并启用 Local REST API 插件
+2. 插件设置里生成/复制 API Key
+3. 在 Catflash 的 Obsidian 设置中填写：
+   - API URL：`http://127.0.0.1:27123`
+   - API Key：插件中生成的 Key
 
 ## 🧰 常用脚本
 

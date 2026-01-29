@@ -57,3 +57,19 @@ export interface ProviderError {
   message: string;
   cause?: unknown;
 }
+
+export type ObsidianMode = 'vault' | 'plugin';
+export type ObsidianReadMode = 'selected' | 'recent' | 'active';
+export type ObsidianWriteMode = 'append' | 'insert-heading' | 'replace';
+
+export interface ObsidianSettings {
+  mode: ObsidianMode;
+  vaultPath?: string;
+  notePath?: string;
+  apiUrl?: string;
+  apiKey?: string;
+  readMode: ObsidianReadMode;
+  writeMode: ObsidianWriteMode;
+  writeHeading: string;
+  previewBeforeWrite: boolean;
+}

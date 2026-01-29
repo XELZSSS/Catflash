@@ -19,6 +19,10 @@ type ChatMainProps = {
   searchEnabled: boolean;
   searchAvailable: boolean;
   onToggleSearch: () => void;
+  onReadObsidian?: () => void;
+  onWriteObsidian?: () => void;
+  obsidianReadDisabled?: boolean;
+  obsidianWriteDisabled?: boolean;
 };
 
 const ChatMain: React.FC<ChatMainProps> = ({
@@ -34,6 +38,10 @@ const ChatMain: React.FC<ChatMainProps> = ({
   searchEnabled,
   searchAvailable,
   onToggleSearch,
+  onReadObsidian,
+  onWriteObsidian,
+  obsidianReadDisabled,
+  obsidianWriteDisabled,
 }) => {
   const chatInput = (
     <ChatInput
@@ -44,6 +52,10 @@ const ChatMain: React.FC<ChatMainProps> = ({
       searchEnabled={searchEnabled}
       searchAvailable={searchAvailable}
       onToggleSearch={onToggleSearch}
+      onReadObsidian={onReadObsidian}
+      onWriteObsidian={onWriteObsidian}
+      obsidianReadDisabled={obsidianReadDisabled}
+      obsidianWriteDisabled={obsidianWriteDisabled}
     />
   );
   const hasMessages = messages.length > 0;

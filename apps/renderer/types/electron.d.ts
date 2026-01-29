@@ -15,6 +15,12 @@ declare global {
         toggleDevTools: string;
         quit: string;
       }) => Promise<void>;
+      obsidian?: {
+        listMarkdown: (vaultPath: string) => Promise<string[]>;
+        getRecentNote: (vaultPath: string) => Promise<string | null>;
+        readNote: (vaultPath: string, notePath: string) => Promise<string>;
+        writeNote: (vaultPath: string, notePath: string, content: string) => Promise<void>;
+      };
     };
   }
 }

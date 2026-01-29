@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Search, StopCircle } from 'lucide-react';
+import { Send, Search, StopCircle, BookOpen, PenLine } from 'lucide-react';
 import { t } from '../utils/i18n';
 
 interface ChatInputProps {
@@ -11,6 +11,10 @@ interface ChatInputProps {
   searchEnabled: boolean;
   searchAvailable: boolean;
   onToggleSearch: () => void;
+  onReadObsidian?: () => void;
+  onWriteObsidian?: () => void;
+  obsidianReadDisabled?: boolean;
+  obsidianWriteDisabled?: boolean;
 }
 
 const DRAFT_STORAGE_KEY = 'gemini_chat_input_draft';
@@ -24,6 +28,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
   searchEnabled,
   searchAvailable,
   onToggleSearch,
+  onReadObsidian,
+  onWriteObsidian,
+  obsidianReadDisabled,
+  obsidianWriteDisabled,
 }) => {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -103,6 +111,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
+  const obsidianButtonClass = (enabled: boolean) =>
+    `h-9 w-9 rounded-full transition-all duration-200 flex items-center justify-center ring-1 ${
+      enabled
+        ? 'bg-[var(--bg-2)] text-[var(--ink-3)] ring-[var(--line-1)] hover:bg-white/5 hover:text-[var(--ink-1)]'
+        : 'bg-[var(--bg-2)] text-[var(--ink-3)] ring-[var(--line-1)] opacity-50 cursor-not-allowed'
+    }`;
+
   return (
     <div className={`mx-auto w-full max-w-[min(64rem,100%)] px-4 pb-6 ${containerClassName ?? ''}`}>
       <div className="relative flex items-end gap-2 bg-[var(--bg-2)] [background-image:none] border border-[var(--line-1)] rounded-[var(--radius-2)] p-2 shadow-none transition-all duration-200">
@@ -116,6 +131,28 @@ const ChatInput: React.FC<ChatInputProps> = ({
           disabled={disabled && !isStreaming}
         />
         <div className="pb-1 pr-1 flex items-center gap-2">
+          {onReadObsidian && (
+            <button
+              type="button"
+              onClick={onReadObsidian}
+              disabled={obsidianReadDisabled || (disabled && !isStreaming)}
+              title={t('obsidian.action.read')}
+              className={obsidianButtonClass(!obsidianReadDisabled && !(disabled && !isStreaming))}
+            >
+              <BookOpen size={18} />
+            </button>
+          )}
+          {onWriteObsidian && (
+            <button
+              type="button"
+              onClick={onWriteObsidian}
+              disabled={obsidianWriteDisabled || (disabled && !isStreaming)}
+              title={t('obsidian.action.write')}
+              className={obsidianButtonClass(!obsidianWriteDisabled && !(disabled && !isStreaming))}
+            >
+              <PenLine size={18} />
+            </button>
+          )}
           <button
             type="button"
             onClick={onToggleSearch}
