@@ -3,8 +3,9 @@ import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
 import { OpenAIStyleProviderBase } from './openaiBase';
 import { ProviderChat, ProviderDefinition } from './types';
 import { DEEPSEEK_MODEL_CATALOG } from './models';
-import { getMaxToolCallRounds, sanitizeApiKey } from './utils';
+import { sanitizeApiKey } from './utils';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
+import { runToolCallLoop, streamStandardChatCompletions } from './openaiChatHelpers';
 
 export const DEEPSEEK_PROVIDER_ID: ProviderId = 'deepseek';
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com';
@@ -106,105 +107,31 @@ class DeepSeekProvider extends OpenAIStyleProviderBase implements ProviderChat {
 
     try {
       const tools = this.buildTools();
-      if (tools) {
-        let workingMessages = messages;
-        let preflightMessage:
-          | (OpenAI.Chat.Completions.ChatCompletionMessage & {
-              tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }>;
-              reasoning_content?: string;
-              reasoning?: string;
-            })
-          | null = null;
-        const maxToolRounds = getMaxToolCallRounds();
+      const { messages: workingMessages } = await runToolCallLoop({
+        client,
+        model: this.modelName,
+        messages: messages as any,
+        tools,
+        tavilyConfig: this.tavilyConfig,
+        buildToolMessages: this.buildToolMessages.bind(this),
+        getAssistantMessageExtras: (preflightMessage) => {
+          const reasoning =
+            preflightMessage?.reasoning_content ?? preflightMessage?.reasoning ?? undefined;
+          return reasoning ? { reasoning_content: reasoning } : null;
+        },
+      });
 
-        for (let round = 0; round < maxToolRounds; round += 1) {
-          const initialResponse = await client.chat.completions.create({
-            model: this.modelName,
-            messages: workingMessages,
-            tools,
-            tool_choice: 'auto',
-            stream: false,
-          });
-
-          preflightMessage = initialResponse?.choices?.[0]?.message ?? null;
-          const toolCalls =
-            (preflightMessage?.tool_calls as Array<{
-              id: string;
-              function?: { name?: string; arguments?: string };
-            }>) ?? [];
-
-          if (!toolCalls.length) {
-            break;
-          }
-
-          const toolMessages = await this.buildToolMessages(toolCalls, this.tavilyConfig);
-          workingMessages = [
-            ...workingMessages,
-            {
-              role: 'assistant' as const,
-              content: preflightMessage?.content ?? null,
-              tool_calls: toolCalls,
-              ...(preflightMessage?.reasoning_content || preflightMessage?.reasoning
-                ? {
-                    reasoning_content:
-                      preflightMessage?.reasoning_content ?? preflightMessage?.reasoning,
-                  }
-                : {}),
-            },
-            ...toolMessages,
-          ];
+      for await (const chunk of streamStandardChatCompletions({
+        client,
+        model: this.modelName,
+        messages: (tools ? workingMessages : messages) as any,
+      })) {
+        if (chunk.reasoning) {
+          yield `<think>${chunk.reasoning}</think>`;
         }
-
-        const stream = (await client.chat.completions.create({
-          model: this.modelName,
-          messages: workingMessages as any,
-          stream: true,
-        })) as unknown as AsyncIterable<{
-          choices?: Array<{
-            delta?: { content?: string; reasoning_content?: string };
-            message?: { content?: string };
-          }>;
-        }>;
-
-        for await (const chunk of stream) {
-          const reasoningDelta = chunk.choices?.[0]?.delta?.reasoning_content;
-          if (reasoningDelta) {
-            // Wrap reasoning content so the UI can show it in a dedicated panel during streaming.
-            yield `<think>${reasoningDelta}</think>`;
-          }
-
-          const contentDelta =
-            chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content;
-          if (contentDelta) {
-            fullResponse += contentDelta;
-            yield contentDelta;
-          }
-        }
-      } else {
-        const stream = await client.chat.completions.create({
-          model: this.modelName,
-          messages,
-          stream: true,
-        });
-
-        for await (const chunk of stream as AsyncIterable<{
-          choices?: Array<{
-            delta?: { content?: string; reasoning_content?: string };
-            message?: { content?: string };
-          }>;
-        }>) {
-          const reasoningDelta = chunk.choices?.[0]?.delta?.reasoning_content;
-          if (reasoningDelta) {
-            // Wrap reasoning content so the UI can show it in a dedicated panel during streaming.
-            yield `<think>${reasoningDelta}</think>`;
-          }
-
-          const contentDelta =
-            chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content;
-          if (contentDelta) {
-            fullResponse += contentDelta;
-            yield contentDelta;
-          }
+        if (chunk.content) {
+          fullResponse += chunk.content;
+          yield chunk.content;
         }
       }
 

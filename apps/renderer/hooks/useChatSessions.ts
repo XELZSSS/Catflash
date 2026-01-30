@@ -98,7 +98,6 @@ export const useChatSessions = ({
       } else {
         next.unshift(session);
       }
-      next.sort((a, b) => b.updatedAt - a.updatedAt);
       return next;
     });
   }, []);

@@ -3,13 +3,9 @@ import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
 import { OpenAIStyleProviderBase } from './openaiBase';
 import { ProviderChat, ProviderDefinition } from './types';
 import { MOONSHOT_MODEL_CATALOG } from './models';
-import { getMaxToolCallRounds, sanitizeApiKey } from './utils';
-import {
-  buildOpenAITavilyTools,
-  callTavilySearch,
-  getDefaultTavilyConfig,
-  normalizeTavilyConfig,
-} from './tavily';
+import { sanitizeApiKey } from './utils';
+import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
+import { runToolCallLoop, streamStandardChatCompletions } from './openaiChatHelpers';
 
 export const MOONSHOT_PROVIDER_ID: ProviderId = 'moonshot';
 export const MOONSHOT_BASE_URL_CN = 'http://localhost:4010/proxy/moonshot-cn';
@@ -148,171 +144,26 @@ class MoonshotProvider extends OpenAIStyleProviderBase implements ProviderChat {
 
     try {
       const tools = this.buildTools();
-      if (tools) {
-        let workingMessages = messages;
-        let preflightMessage:
-          | (OpenAI.Chat.Completions.ChatCompletionMessage & {
-              tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }>;
-            })
-          | null = null;
-        const maxToolRounds = getMaxToolCallRounds();
+      const { messages: workingMessages } = await runToolCallLoop({
+        client,
+        model: this.modelName,
+        messages: messages as any,
+        tools,
+        tavilyConfig: this.tavilyConfig,
+        buildToolMessages: this.buildToolMessages.bind(this),
+      });
 
-        for (let round = 0; round < maxToolRounds; round += 1) {
-          const initialResponse = await client.chat.completions.create({
-            model: this.modelName,
-            messages: workingMessages,
-            tools,
-            tool_choice: 'auto',
-            stream: false,
-          });
-
-          preflightMessage = initialResponse?.choices?.[0]?.message ?? null;
-          const toolCalls =
-            (preflightMessage?.tool_calls as Array<{
-              id: string;
-              function?: { name?: string; arguments?: string };
-            }>) ?? [];
-
-          if (!toolCalls.length) {
-            break;
-          }
-
-          const toolResults = await Promise.all(
-            toolCalls.map(async (call) => {
-              if (call.function?.name !== 'tavily_search') {
-                return {
-                  tool_call_id: call.id,
-                  content: JSON.stringify({
-                    error: `Unsupported tool: ${call.function?.name ?? 'unknown'}`,
-                  }),
-                };
-              }
-              let args: { query?: string } = {};
-              try {
-                args = call.function?.arguments ? JSON.parse(call.function.arguments) : {};
-              } catch {
-                args = {};
-              }
-              if (!args.query) {
-                return {
-                  tool_call_id: call.id,
-                  content: JSON.stringify({ error: 'Missing query for tavily_search' }),
-                };
-              }
-              try {
-                const result = await callTavilySearch(this.tavilyConfig, args as any);
-                return {
-                  tool_call_id: call.id,
-                  content: JSON.stringify(result),
-                };
-              } catch (error) {
-                return {
-                  tool_call_id: call.id,
-                  content: JSON.stringify({
-                    error: error instanceof Error ? error.message : 'Tavily search failed',
-                  }),
-                };
-              }
-            })
-          );
-
-          const toolMessages = toolResults.map((result) => ({
-            role: 'tool' as const,
-            tool_call_id: result.tool_call_id,
-            content: result.content,
-          }));
-
-          workingMessages = [
-            ...workingMessages,
-            {
-              role: 'assistant' as const,
-              content: preflightMessage?.content ?? null,
-              tool_calls: toolCalls,
-            },
-            ...toolMessages,
-          ];
+      for await (const chunk of streamStandardChatCompletions({
+        client,
+        model: this.modelName,
+        messages: (tools ? workingMessages : messages) as any,
+      })) {
+        if (chunk.reasoning) {
+          yield `<think>${chunk.reasoning}</think>`;
         }
-
-        const stream = (await client.chat.completions.create({
-          model: this.modelName,
-          messages: workingMessages as any,
-          stream: true,
-        })) as unknown as AsyncIterable<{
-          choices?: Array<{
-            delta?: {
-              content?: string;
-              reasoning_content?: string;
-              reasoning_text?: string;
-              reasoning?: string;
-            };
-            message?: {
-              content?: string;
-              reasoning_content?: string;
-              reasoning_text?: string;
-              reasoning?: string;
-            };
-          }>;
-        }>;
-
-        for await (const chunk of stream) {
-          const reasoningDelta =
-            chunk.choices?.[0]?.delta?.reasoning_content ??
-            chunk.choices?.[0]?.delta?.reasoning_text ??
-            chunk.choices?.[0]?.delta?.reasoning ??
-            chunk.choices?.[0]?.message?.reasoning_content ??
-            chunk.choices?.[0]?.message?.reasoning_text ??
-            chunk.choices?.[0]?.message?.reasoning;
-          if (reasoningDelta) {
-            yield `<think>${reasoningDelta}</think>`;
-          }
-
-          const contentDelta =
-            chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content;
-          if (contentDelta) {
-            fullResponse += contentDelta;
-            yield contentDelta;
-          }
-        }
-      } else {
-        const stream = (await client.chat.completions.create({
-          model: this.modelName,
-          messages,
-          stream: true,
-        })) as unknown as AsyncIterable<{
-          choices?: Array<{
-            delta?: {
-              content?: string;
-              reasoning_content?: string;
-              reasoning_text?: string;
-              reasoning?: string;
-            };
-            message?: {
-              content?: string;
-              reasoning_content?: string;
-              reasoning_text?: string;
-              reasoning?: string;
-            };
-          }>;
-        }>;
-
-        for await (const chunk of stream) {
-          const reasoningDelta =
-            chunk.choices?.[0]?.delta?.reasoning_content ??
-            chunk.choices?.[0]?.delta?.reasoning_text ??
-            chunk.choices?.[0]?.delta?.reasoning ??
-            chunk.choices?.[0]?.message?.reasoning_content ??
-            chunk.choices?.[0]?.message?.reasoning_text ??
-            chunk.choices?.[0]?.message?.reasoning;
-          if (reasoningDelta) {
-            yield `<think>${reasoningDelta}</think>`;
-          }
-
-          const contentDelta =
-            chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content;
-          if (contentDelta) {
-            fullResponse += contentDelta;
-            yield contentDelta;
-          }
+        if (chunk.content) {
+          fullResponse += chunk.content;
+          yield chunk.content;
         }
       }
 
