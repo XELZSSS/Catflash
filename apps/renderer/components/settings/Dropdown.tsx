@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 type DropdownOption = {
@@ -34,6 +34,13 @@ const Dropdown: React.FC<DropdownProps> = ({
   } | null>(null);
   const [menuHeight, setMenuHeight] = useState<number | null>(null);
   const [menuReady, setMenuReady] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const listboxId = useId();
+  const selectedIndex = Math.max(
+    0,
+    options.findIndex((option) => option.value === value)
+  );
 
   const updatePosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -43,12 +50,24 @@ const Dropdown: React.FC<DropdownProps> = ({
     const spaceBelow = window.innerHeight - rect.bottom;
     const effectiveMenuHeight = menuHeight ?? maxMenuHeight;
     const openUp = spaceBelow < effectiveMenuHeight + 12 && rect.top > effectiveMenuHeight + 12;
-    setPosition({
-      top: rect.top,
-      left: rect.left,
-      width: rect.width,
-      height: rect.height,
-      openUp,
+    setPosition((prev) => {
+      if (
+        prev &&
+        prev.top === rect.top &&
+        prev.left === rect.left &&
+        prev.width === rect.width &&
+        prev.height === rect.height &&
+        prev.openUp === openUp
+      ) {
+        return prev;
+      }
+      return {
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+        openUp,
+      };
     });
   }, [menuHeight]);
 
@@ -80,17 +99,23 @@ const Dropdown: React.FC<DropdownProps> = ({
   }, [open, updatePosition]);
 
   useEffect(() => {
+    if (!open) return;
+    setFocusedIndex(selectedIndex);
+  }, [open, selectedIndex]);
+
+  useEffect(() => {
     if (!open) {
       setMenuHeight(null);
       setMenuReady(false);
       return;
     }
     return undefined;
-  }, [open, menuHeight]);
+  }, [open]);
 
   useLayoutEffect(() => {
     if (!open) return;
-    const height = menuRef.current?.getBoundingClientRect().height ?? null;
+    const rawHeight = menuRef.current?.getBoundingClientRect().height ?? null;
+    const height = rawHeight ? Math.round(rawHeight) : null;
     if (!height) return;
     if (height !== menuHeight) {
       setMenuHeight(height);
@@ -102,7 +127,33 @@ const Dropdown: React.FC<DropdownProps> = ({
     }
   }, [open, menuHeight, menuReady, updatePosition]);
 
+  useEffect(() => {
+    if (!open || !menuReady) return;
+    menuRef.current?.focus();
+    const target = optionRefs.current[focusedIndex];
+    target?.scrollIntoView({ block: 'nearest' });
+  }, [focusedIndex, menuReady, open]);
+
   const current = options.find((option) => option.value === value)?.label ?? value;
+  const lastIndex = Math.max(0, options.length - 1);
+
+  const openWithFocus = (nextIndex: number) => {
+    updatePosition();
+    setFocusedIndex(Math.min(Math.max(nextIndex, 0), lastIndex));
+    setOpen(true);
+  };
+
+  const closeMenu = () => {
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  };
+
+  const selectOption = (index: number) => {
+    const option = options[index];
+    if (!option) return;
+    onChange(option.value);
+    closeMenu();
+  };
 
   return (
     <div ref={containerRef} className={`relative w-full ${widthClassName ?? 'sm:w-56'}`}>
@@ -113,9 +164,38 @@ const Dropdown: React.FC<DropdownProps> = ({
           updatePosition();
           setOpen((prev) => !prev);
         }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            if (!open) {
+              openWithFocus(selectedIndex);
+              return;
+            }
+            setFocusedIndex((prev) => Math.min(lastIndex, prev + 1));
+            return;
+          }
+          if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            if (!open) {
+              openWithFocus(selectedIndex);
+              return;
+            }
+            setFocusedIndex((prev) => Math.max(0, prev - 1));
+            return;
+          }
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            if (!open) {
+              openWithFocus(selectedIndex);
+              return;
+            }
+            selectOption(focusedIndex);
+          }
+        }}
         className="flex w-full items-center justify-between rounded-md bg-[var(--bg-2)] [background-image:none] shadow-none px-2.5 py-1.5 text-xs font-sans text-[var(--ink-2)] outline-none ring-1 ring-[var(--line-1)] focus:ring-[color:var(--ink-3)]"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? listboxId : undefined}
       >
         <span>{current}</span>
       </button>
@@ -124,6 +204,7 @@ const Dropdown: React.FC<DropdownProps> = ({
         ? createPortal(
             <div
               ref={menuRef}
+              id={listboxId}
               className="fixed z-50 max-h-56 overflow-auto scrollbar-hide rounded-md border border-[var(--line-1)] bg-[var(--bg-2)] p-1.5 shadow-none"
               style={{
                 left: position.left,
@@ -134,19 +215,54 @@ const Dropdown: React.FC<DropdownProps> = ({
                 pointerEvents: menuReady ? 'auto' : 'none',
               }}
               role="listbox"
+              tabIndex={-1}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  closeMenu();
+                  return;
+                }
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  setFocusedIndex((prev) => Math.min(lastIndex, prev + 1));
+                  return;
+                }
+                if (event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  setFocusedIndex((prev) => Math.max(0, prev - 1));
+                  return;
+                }
+                if (event.key === 'Home') {
+                  event.preventDefault();
+                  setFocusedIndex(0);
+                  return;
+                }
+                if (event.key === 'End') {
+                  event.preventDefault();
+                  setFocusedIndex(lastIndex);
+                  return;
+                }
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  selectOption(focusedIndex);
+                }
+              }}
             >
-              {options.map((option) => (
+              {options.map((option, index) => (
                 <div key={option.value} className="px-1.5 py-0.5">
                   <button
-                    type="button"
-                    onClick={() => {
-                      onChange(option.value);
-                      setOpen(false);
+                    ref={(node) => {
+                      optionRefs.current[index] = node;
                     }}
+                    type="button"
+                    onClick={() => selectOption(index)}
+                    onMouseEnter={() => setFocusedIndex(index)}
                     className={`flex w-full items-center rounded-md px-2.5 py-1.5 text-xs font-sans transition-colors ${
-                      option.value === value
+                      focusedIndex === index
                         ? 'bg-white/10 text-[var(--ink-1)]'
-                        : 'text-[var(--ink-2)] hover:bg-white/5 hover:text-[var(--ink-1)]'
+                        : option.value === value
+                          ? 'bg-white/10 text-[var(--ink-1)]'
+                          : 'text-[var(--ink-2)] hover:bg-white/5 hover:text-[var(--ink-1)]'
                     }`}
                     role="option"
                     aria-selected={option.value === value}

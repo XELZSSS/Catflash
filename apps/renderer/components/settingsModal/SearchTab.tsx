@@ -3,11 +3,8 @@ import { Eye, EyeOff, Trash2 } from 'lucide-react';
 import { TavilyConfig } from '../../types';
 import { t } from '../../utils/i18n';
 import Dropdown from '../settings/Dropdown';
-import {
-  fullInputClass,
-  getTavilySearchDepthOptions,
-  getTavilyTopicOptions,
-} from './constants';
+import { fullInputClass, getTavilySearchDepthOptions, getTavilyTopicOptions } from './constants';
+import { Button, Field, Input, Toggle } from '../ui';
 
 type SearchTabProps = {
   tavily: TavilyConfig;
@@ -26,41 +23,41 @@ const SearchTab: React.FC<SearchTabProps> = ({
 }) => {
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-[var(--ink-2)]">
-            {t('settings.modal.tavily.title')}
-          </label>
-        </div>
+      <Field label={t('settings.modal.tavily.title')}>
         <div className="space-y-2">
           <div className="flex flex-col gap-2">
-            <label className="text-xs text-[var(--ink-3)]">{t('settings.modal.tavily.apiKey')}</label>
+            <label className="text-xs text-[var(--ink-3)]">
+              {t('settings.modal.tavily.apiKey')}
+            </label>
             <div className="relative">
-              <input
+              <Input
                 type={showTavilyKey ? 'text' : 'password'}
                 value={tavily.apiKey ?? ''}
                 onChange={(event) => onSetTavilyField('apiKey', event.target.value)}
                 className={`${fullInputClass} pr-20`}
+                compact
                 autoComplete="off"
               />
               <div className="absolute inset-y-0 right-2 flex items-center gap-1.5">
-                <button
-                  type="button"
+                <Button
                   onClick={onToggleTavilyKeyVisibility}
-                  className="text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors"
+                  variant="ghost"
+                  size="sm"
+                  className="!px-0 !py-0 h-auto"
                   aria-label={showTavilyKey ? t('settings.apiKey.hide') : t('settings.apiKey.show')}
                 >
                   {showTavilyKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
                   onClick={() => onSetTavilyField('apiKey', '')}
-                  className="text-[var(--ink-3)] hover:text-red-400 transition-colors"
+                  variant="ghost"
+                  size="sm"
+                  className="!px-0 !py-0 h-auto hover:text-red-400"
                   aria-label={t('settings.apiKey.clear')}
                   title={t('settings.apiKey.clear')}
                 >
                   <Trash2 size={16} />
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -69,11 +66,12 @@ const SearchTab: React.FC<SearchTabProps> = ({
             <label className="text-xs text-[var(--ink-3)]">
               {t('settings.modal.tavily.projectId')}
             </label>
-            <input
+            <Input
               type="text"
               value={tavily.projectId ?? ''}
               onChange={(event) => onSetTavilyField('projectId', event.target.value)}
               className={fullInputClass}
+              compact
               autoComplete="off"
             />
           </div>
@@ -98,7 +96,7 @@ const SearchTab: React.FC<SearchTabProps> = ({
               <label className="text-xs text-[var(--ink-3)]">
                 {t('settings.modal.tavily.maxResults')}
               </label>
-              <input
+              <Input
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
@@ -110,11 +108,14 @@ const SearchTab: React.FC<SearchTabProps> = ({
                   )
                 }
                 className={fullInputClass}
+                compact
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-xs text-[var(--ink-3)]">{t('settings.modal.tavily.topic')}</label>
+              <label className="text-xs text-[var(--ink-3)]">
+                {t('settings.modal.tavily.topic')}
+              </label>
               <Dropdown
                 value={tavily.topic ?? 'general'}
                 options={getTavilyTopicOptions()}
@@ -128,16 +129,14 @@ const SearchTab: React.FC<SearchTabProps> = ({
           </div>
 
           <label className="flex items-center gap-2 text-xs text-[var(--ink-3)]">
-            <input
-              type="checkbox"
+            <Toggle
               checked={tavily.includeAnswer ?? true}
               onChange={(event) => onSetTavilyField('includeAnswer', event.target.checked)}
-              className="h-4 w-4 rounded border border-[var(--line-1)] bg-[var(--bg-2)] text-[var(--ink-1)] accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ink-3)] focus-visible:ring-offset-0"
             />
             {t('settings.modal.tavily.includeAnswer')}
           </label>
         </div>
-      </div>
+      </Field>
     </div>
   );
 };

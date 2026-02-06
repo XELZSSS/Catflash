@@ -1,3 +1,4 @@
+/* global __dirname */
 const { app, Menu, globalShortcut, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -8,12 +9,9 @@ const resolveMainModule = (name) => {
   return path.join(__dirname, 'apps', 'main', `${name}.cjs`);
 };
 
-const {
-  createMainWindow,
-  getMainWindow,
-  registerWindowIpcHandlers,
-  showWindow,
-} = require(resolveMainModule('window'));
+const { createMainWindow, getMainWindow, registerWindowIpcHandlers, showWindow } = require(
+  resolveMainModule('window')
+);
 const { createTray, setTrayLanguage, setTrayLabels } = require(resolveMainModule('tray'));
 const { registerObsidianIpcHandlers } = require(resolveMainModule('obsidian'));
 const { startProxy, stopProxy } = require(resolveMainModule('proxy'));

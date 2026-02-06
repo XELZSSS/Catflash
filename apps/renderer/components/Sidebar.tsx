@@ -15,6 +15,7 @@ import { ChatSession } from '../types';
 import { Language, t } from '../utils/i18n';
 import { useRef } from 'react';
 import { useVirtualList } from '../hooks/useVirtualList';
+import { Button, IconButton, Input } from './ui';
 
 type SidebarProps = {
   isSidebarOpen: boolean;
@@ -78,10 +79,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   });
 
   const sortButtonClass = (active: boolean) =>
-    `p-1.5 rounded-md transition-all ${
-      active
-        ? 'bg-[var(--bg-2)] text-[var(--ink-1)] shadow-sm'
-        : 'text-[var(--ink-3)] hover:text-[var(--ink-2)]'
+    `!h-7 !w-7 !p-0 !rounded-md !ring-0 !bg-transparent hover:!bg-transparent shadow-none transition-colors ${
+      active ? 'text-[var(--ink-1)]' : 'text-[var(--ink-3)] hover:text-[var(--ink-2)]'
     }`;
 
   return (
@@ -91,13 +90,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       }`}
     >
       <div className="flex flex-col h-full p-4">
-        <button
+        <Button
           onClick={onNewChatClick}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-strong)] text-[#1a1a1a] rounded-lg transition-colors mb-6 text-sm font-medium"
+          variant="primary"
+          size="md"
+          className="w-full flex items-center justify-center gap-2 !py-2.5 mb-6"
         >
           <Plus size={16} />
           <span>{t('sidebar.newChat')}</span>
-        </button>
+        </Button>
 
         {/* Search Bar */}
         <div className="px-1 mb-3">
@@ -106,7 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--ink-3)] group-focus-within:text-[var(--ink-2)] transition-colors"
               size={14}
             />
-            <input
+            <Input
               type="text"
               placeholder={t('sidebar.searchPlaceholder')}
               value={searchQuery}
@@ -118,29 +119,31 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Sort Controls */}
         <div className="px-1 mb-4 flex items-center justify-between">
-          <div className="flex rounded-lg p-0.5 gap-0.5 ring-1 ring-[var(--line-1)]">
-            <button
+          <div className="flex gap-1">
+            <IconButton
               onClick={() => onSortByChange('updatedAt')}
               className={sortButtonClass(sortBy === 'updatedAt')}
               title={t('sidebar.sort.updatedAtTitle')}
             >
               <Clock size={14} />
-            </button>
-            <button
+            </IconButton>
+            <IconButton
               onClick={() => onSortByChange('createdAt')}
               className={sortButtonClass(sortBy === 'createdAt')}
               title={t('sidebar.sort.createdAtTitle')}
             >
               <Calendar size={14} />
-            </button>
+            </IconButton>
           </div>
 
-          <button
+          <Button
             onClick={onSortOrderToggle}
-            className="flex items-center gap-1.5 text-xs font-medium text-[var(--ink-3)] hover:text-[var(--ink-2)] px-2 py-1.5 rounded-lg hover:bg-[var(--bg-2)] transition-colors"
+            variant="ghost"
+            size="sm"
+            className="flex items-center gap-1.5 text-xs"
           >
             <span>{sortOrder === 'asc' ? t('sidebar.sort.oldest') : t('sidebar.sort.newest')}</span>
-          </button>
+          </Button>
         </div>
 
         <div ref={listContainerRef} className="flex-1 overflow-y-auto pr-1">
@@ -171,7 +174,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   >
                     {editingSessionId === session.id ? (
                       <div className="flex items-center gap-1 w-full" onClick={onEditInputClick}>
-                        <input
+                        <Input
                           type="text"
                           autoFocus
                           value={editTitleInput}
@@ -179,18 +182,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                           onKeyDown={onEditKeyDown}
                           className="flex-1 bg-[var(--bg-0)] text-[var(--ink-1)] text-xs px-2 py-1.5 rounded border border-[var(--line-1)] focus:outline-none focus:border-[var(--ink-3)]"
                         />
-                        <button
-                          onClick={onSaveEdit}
-                          className="p-1 hover:text-[var(--ink-1)] text-[var(--ink-3)] transition-colors"
-                        >
+                        <IconButton onClick={onSaveEdit} className="!h-6 !w-6 !p-0">
                           <Check size={14} />
-                        </button>
-                        <button
+                        </IconButton>
+                        <IconButton
                           onClick={onCancelEdit}
-                          className="p-1 hover:text-red-400 text-[var(--ink-3)] transition-colors"
+                          className="!h-6 !w-6 !p-0 hover:text-red-400"
                         >
                           <X size={14} />
-                        </button>
+                        </IconButton>
                       </div>
                     ) : (
                       <>
@@ -198,20 +198,21 @@ const Sidebar: React.FC<SidebarProps> = ({
                           <span className="truncate">{session.title}</span>
                         </div>
                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
+                          <IconButton
                             onClick={(e) => onStartEdit(e, session)}
-                            className="p-1.5 text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors rounded hover:bg-[var(--bg-2)]"
+                            className="!h-7 !w-7 !p-1.5 rounded !ring-0 !bg-transparent hover:!bg-transparent shadow-none"
                             title={t('sidebar.editTitle')}
                           >
                             <Edit2 size={13} />
-                          </button>
-                          <button
+                          </IconButton>
+                          <IconButton
                             onClick={(e) => onDeleteSession(e, session.id)}
-                            className="p-1.5 text-[var(--ink-3)] hover:text-red-400 transition-colors rounded hover:bg-[var(--bg-2)]"
+                            danger
+                            className="!h-7 !w-7 !p-1.5 rounded !ring-0 !bg-transparent hover:!bg-transparent shadow-none"
                             title={t('sidebar.deleteTitle')}
                           >
                             <Trash2 size={13} />
-                          </button>
+                          </IconButton>
                         </div>
                       </>
                     )}
@@ -224,20 +225,24 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <div className="mt-auto px-1 space-y-1">
-          <button
+          <Button
             onClick={() => onLanguageChange(language === 'en' ? 'zh-CN' : 'en')}
-            className="flex items-center gap-3 text-[var(--ink-2)] hover:text-[var(--ink-1)] transition-colors text-sm w-full p-2 rounded-lg hover:bg-[var(--bg-2)]"
+            variant="ghost"
+            size="md"
+            className="flex items-center gap-3 text-sm w-full justify-start"
           >
             <Globe size={16} />
             <span>{language === 'en' ? t('language.en') : t('language.zhCN')}</span>
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={onOpenSettings}
-            className="flex items-center gap-3 text-[var(--ink-2)] hover:text-[var(--ink-1)] transition-colors text-sm w-full p-2 rounded-lg hover:bg-[var(--bg-2)]"
+            variant="ghost"
+            size="md"
+            className="flex items-center gap-3 text-sm w-full justify-start"
           >
             <Settings size={16} />
             <span>{t('sidebar.settings')}</span>
-          </button>
+          </Button>
         </div>
       </div>
     </aside>

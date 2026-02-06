@@ -6,6 +6,7 @@ import { getProviderDefaultModel } from '../../services/providers/registry';
 import Dropdown, { DropdownOption } from '../settings/Dropdown';
 import { DEFAULT_MAX_TOOL_CALL_ROUNDS } from '../../services/providers/utils';
 import { fullInputClass, resolveBaseUrlForRegion, smInputClass } from './constants';
+import { Button, Field, Input } from '../ui';
 
 type ProviderTabProps = {
   providerId: ProviderId;
@@ -64,56 +65,49 @@ const ProviderTab: React.FC<ProviderTabProps> = ({
 }) => {
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <label className="text-xs font-medium text-[var(--ink-2)]">{t('settings.modal.provider')}</label>
-          <Dropdown
-            value={providerId}
-            options={providerOptions}
-            onChange={(value) => onProviderChange(value as ProviderId)}
-            portalContainer={portalContainer}
-          />
-        </div>
-      </div>
+      <Field label={t('settings.modal.provider')}>
+        <Dropdown
+          value={providerId}
+          options={providerOptions}
+          onChange={(value) => onProviderChange(value as ProviderId)}
+          portalContainer={portalContainer}
+        />
+      </Field>
 
-      <div className="space-y-2">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <label className="text-xs font-medium text-[var(--ink-2)]">{t('settings.modal.model')}</label>
-          <input
-            type="text"
-            value={modelName}
-            onChange={(event) => onModelNameChange(event.target.value)}
-            placeholder={getProviderDefaultModel(providerId)}
-            className={smInputClass}
-            autoComplete="off"
-          />
-        </div>
-      </div>
+      <Field label={t('settings.modal.model')}>
+        <Input
+          type="text"
+          value={modelName}
+          onChange={(event) => onModelNameChange(event.target.value)}
+          placeholder={getProviderDefaultModel(providerId)}
+          className={smInputClass}
+          compact
+          autoComplete="off"
+        />
+      </Field>
 
-      <div className="space-y-2">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <label className="text-xs font-medium text-[var(--ink-2)]">
-            {t('settings.modal.toolCallRounds')}
-          </label>
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={toolCallMaxRounds}
-            onChange={(event) => onToolCallMaxRoundsChange(event.target.value.replace(/[^\d]/g, ''))}
-            onBlur={onToolCallMaxRoundsBlur}
-            placeholder={String(DEFAULT_MAX_TOOL_CALL_ROUNDS)}
-            className={smInputClass}
-            autoComplete="off"
-          />
-        </div>
-      </div>
+      <Field label={t('settings.modal.toolCallRounds')}>
+        <Input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={toolCallMaxRounds}
+          onChange={(event) => onToolCallMaxRoundsChange(event.target.value.replace(/[^\d]/g, ''))}
+          onBlur={onToolCallMaxRoundsBlur}
+          placeholder={String(DEFAULT_MAX_TOOL_CALL_ROUNDS)}
+          className={smInputClass}
+          compact
+          autoComplete="off"
+        />
+      </Field>
 
       <div className="space-y-2">
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-medium text-[var(--ink-2)]">{t('settings.modal.apiKey')}</label>
+          <label className="text-xs font-medium text-[var(--ink-2)]">
+            {t('settings.modal.apiKey')}
+          </label>
           <div className="relative">
-            <input
+            <Input
               type={showApiKey ? 'text' : 'password'}
               value={apiKey}
               onChange={(event) => onApiKeyChange(event.target.value)}
@@ -121,23 +115,25 @@ const ProviderTab: React.FC<ProviderTabProps> = ({
               autoComplete="off"
             />
             <div className="absolute inset-y-0 right-2 flex items-center gap-1.5">
-              <button
-                type="button"
+              <Button
                 onClick={onToggleApiKeyVisibility}
-                className="text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors"
+                variant="ghost"
+                size="sm"
+                className="!px-0 !py-0 h-auto"
                 aria-label={showApiKey ? t('settings.apiKey.hide') : t('settings.apiKey.show')}
               >
                 {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
                 onClick={onClearApiKey}
-                className="text-[var(--ink-3)] hover:text-red-400 transition-colors"
+                variant="ghost"
+                size="sm"
+                className="!px-0 !py-0 h-auto hover:text-red-400"
                 aria-label={t('settings.apiKey.clear')}
                 title={t('settings.apiKey.clear')}
               >
                 <Trash2 size={16} />
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -151,12 +147,13 @@ const ProviderTab: React.FC<ProviderTabProps> = ({
                 <label className="text-xs font-medium text-[var(--ink-2)]">
                   {t('settings.modal.baseUrl')}
                 </label>
-                <input
+                <Input
                   type="text"
                   value={baseUrl ?? ''}
                   onChange={(event) => onBaseUrlChange(event.target.value)}
                   placeholder="https://api.example.com/v1"
                   className={smInputClass}
+                  compact
                   autoComplete="off"
                 />
               </div>
@@ -169,13 +166,14 @@ const ProviderTab: React.FC<ProviderTabProps> = ({
                 <label className="text-xs font-medium text-[var(--ink-2)]">
                   {t('settings.modal.customHeaders')}
                 </label>
-                <button
-                  type="button"
+                <Button
                   onClick={onAddCustomHeader}
-                  className="text-xs text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors"
+                  variant="ghost"
+                  size="sm"
+                  className="!p-0 text-xs"
                 >
                   {t('settings.modal.customHeaders.add')}
-                </button>
+                </Button>
               </div>
 
               <div className="space-y-1.5">
@@ -189,31 +187,34 @@ const ProviderTab: React.FC<ProviderTabProps> = ({
                     key={`${header.key}-${index}`}
                     className="flex flex-col gap-2 sm:flex-row sm:items-center"
                   >
-                    <input
+                    <Input
                       type="text"
                       value={header.key}
                       onChange={(event) => onSetCustomHeaderKey(index, event.target.value)}
                       placeholder={t('settings.modal.customHeaders.key')}
                       className={fullInputClass}
+                      compact
                       autoComplete="off"
                     />
-                    <input
+                    <Input
                       type="text"
                       value={header.value}
                       onChange={(event) => onSetCustomHeaderValue(index, event.target.value)}
                       placeholder={t('settings.modal.customHeaders.value')}
                       className={fullInputClass}
+                      compact
                       autoComplete="off"
                     />
-                    <button
-                      type="button"
+                    <Button
                       onClick={() => onRemoveCustomHeader(index)}
-                      className="text-[var(--ink-3)] hover:text-red-400 transition-colors"
+                      variant="ghost"
+                      size="sm"
+                      className="!px-1 !py-1 hover:text-red-400"
                       aria-label={t('settings.modal.customHeaders.remove')}
                       title={t('settings.modal.customHeaders.remove')}
                     >
                       <Trash2 size={16} />
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -225,12 +226,15 @@ const ProviderTab: React.FC<ProviderTabProps> = ({
       {supportsRegion && (
         <div className="space-y-2">
           <div className="flex justify-between items-center">
-            <label className="text-xs font-medium text-[var(--ink-2)]">{t('settings.modal.region')}</label>
+            <label className="text-xs font-medium text-[var(--ink-2)]">
+              {t('settings.modal.region')}
+            </label>
           </div>
           <div className="flex gap-2">
-            <button
-              type="button"
+            <Button
               onClick={() => onSetRegionBaseUrl('intl')}
+              size="sm"
+              variant="subtle"
               className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ring-1 ${
                 baseUrl === resolveBaseUrlForRegion(providerId, 'intl')
                   ? 'bg-[var(--accent)] text-[#1a1a1a] ring-[var(--accent)]'
@@ -238,10 +242,11 @@ const ProviderTab: React.FC<ProviderTabProps> = ({
               }`}
             >
               {t('settings.modal.region.international')}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
               onClick={() => onSetRegionBaseUrl('cn')}
+              size="sm"
+              variant="subtle"
               className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ring-1 ${
                 baseUrl === resolveBaseUrlForRegion(providerId, 'cn')
                   ? 'bg-[var(--accent)] text-[#1a1a1a] ring-[var(--accent)]'
@@ -249,7 +254,7 @@ const ProviderTab: React.FC<ProviderTabProps> = ({
               }`}
             >
               {t('settings.modal.region.china')}
-            </button>
+            </Button>
           </div>
         </div>
       )}

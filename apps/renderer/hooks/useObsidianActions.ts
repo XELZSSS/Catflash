@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ChatMessage, Role } from '../types';
 import { t } from '../utils/i18n';
 import { insertUnderHeading } from '../utils/obsidian';
+import { formatMessageTime } from '../utils/time';
 
 type UseObsidianActionsOptions = {
   obsidianSettings: import('../types').ObsidianSettings;
@@ -28,13 +29,15 @@ export const useObsidianActions = ({
 
   const pushObsidianMessage = useCallback(
     (text: string, isError = false) => {
+      const timestamp = Date.now();
       setMessages((prev) => [
         ...prev,
         {
           id: uuidv4(),
           role: Role.Model,
           text,
-          timestamp: Date.now(),
+          timestamp,
+          timeLabel: formatMessageTime(timestamp),
           isError,
         },
       ]);

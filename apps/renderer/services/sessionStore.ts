@@ -1,5 +1,6 @@
 import { ChatSession } from '../types';
 import { GEMINI_MODEL_NAME, GEMINI_PROVIDER_ID } from './providers/geminiProvider';
+import { formatMessageTime } from '../utils/time';
 
 const STORAGE_KEY = 'gemini_chat_sessions';
 const ACTIVE_SESSION_KEY = 'gemini_chat_active_session_id';
@@ -48,7 +49,10 @@ const normalizeSession = (session: StoredSession): ChatSession => {
     ...session,
     provider: session.provider ?? GEMINI_PROVIDER_ID,
     model: session.model ?? GEMINI_MODEL_NAME,
-    messages: session.messages ?? [],
+    messages: (session.messages ?? []).map((message) => ({
+      ...message,
+      timeLabel: message.timeLabel ?? formatMessageTime(message.timestamp),
+    })),
   };
 };
 

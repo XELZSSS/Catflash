@@ -49,14 +49,29 @@ const TitleBar: React.FC = () => {
     <div className="titlebar">
       <div className="titlebar-drag" />
       <div className="titlebar-controls">
-        <button className="titlebar-btn" onClick={() => window.gero?.minimize()}>
+        <button
+          className="titlebar-btn"
+          onClick={() => window.gero?.minimize()}
+          aria-label="Minimize"
+          title="Minimize"
+        >
           <WinIcon type="min" />
         </button>
-        <button className="titlebar-btn" onClick={() => window.gero?.toggleMaximize()}>
+        <button
+          className="titlebar-btn"
+          onClick={() => window.gero?.toggleMaximize()}
+          aria-label={maximized ? 'Restore' : 'Maximize'}
+          title={maximized ? 'Restore' : 'Maximize'}
+        >
           <WinIcon type="max" />
           <span className="sr-only">{maximized ? 'Restore' : 'Maximize'}</span>
         </button>
-        <button className="titlebar-btn titlebar-btn-close" onClick={() => window.gero?.close()}>
+        <button
+          className="titlebar-btn titlebar-btn-close"
+          onClick={() => window.gero?.close()}
+          aria-label="Close"
+          title="Close"
+        >
           <WinIcon type="close" />
         </button>
       </div>

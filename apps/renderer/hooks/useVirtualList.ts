@@ -24,7 +24,13 @@ export const useVirtualList = <T>({
   const [scrollTop, setScrollTop] = useState(0);
 
   useEffect(() => {
-    setSizes((prev) => items.map((item, index) => prev[index] ?? estimateSize(item, index)));
+    setSizes((prev) => {
+      const next = items.map((item, index) => prev[index] ?? estimateSize(item, index));
+      if (prev.length === next.length && prev.every((size, index) => size === next[index])) {
+        return prev;
+      }
+      return next;
+    });
   }, [estimateSize, items]);
 
   const offsets = useMemo(() => {

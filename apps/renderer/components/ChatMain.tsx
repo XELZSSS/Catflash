@@ -42,21 +42,19 @@ const ChatMain: React.FC<ChatMainProps> = ({
   obsidianReadDisabled,
   obsidianWriteDisabled,
 }) => {
-  const chatInput = (
-    <ChatInput
-      onSend={onSendMessage}
-      disabled={isLoading}
-      isStreaming={isStreaming}
-      onStop={onStopStreaming}
-      searchEnabled={searchEnabled}
-      searchAvailable={searchAvailable}
-      onToggleSearch={onToggleSearch}
-      onReadObsidian={onReadObsidian}
-      onWriteObsidian={onWriteObsidian}
-      obsidianReadDisabled={obsidianReadDisabled}
-      obsidianWriteDisabled={obsidianWriteDisabled}
-    />
-  );
+  const chatInputProps = {
+    onSend: onSendMessage,
+    disabled: isLoading,
+    isStreaming,
+    onStop: onStopStreaming,
+    searchEnabled,
+    searchAvailable,
+    onToggleSearch,
+    onReadObsidian,
+    onWriteObsidian,
+    obsidianReadDisabled,
+    obsidianWriteDisabled,
+  };
   const hasMessages = messages.length > 0;
   const { visibleItems, topSpacerHeight, bottomSpacerHeight, measureItem } = useVirtualList({
     items: messages,
@@ -96,9 +94,12 @@ const ChatMain: React.FC<ChatMainProps> = ({
         >
           {!hasMessages ? (
             <WelcomeScreen
-              input={React.cloneElement(chatInput, {
-                containerClassName: 'px-0 pb-0 max-w-[min(80rem,100%)]',
-              })}
+              input={
+                <ChatInput
+                  {...chatInputProps}
+                  containerClassName="px-0 pb-0 max-w-[min(80rem,100%)]"
+                />
+              }
             />
           ) : (
             <>
@@ -122,7 +123,11 @@ const ChatMain: React.FC<ChatMainProps> = ({
       </div>
 
       {/* Input Area */}
-      {hasMessages && <div className="absolute bottom-0 left-0 right-0 z-20">{chatInput}</div>}
+      {hasMessages && (
+        <div className="absolute bottom-0 left-0 right-0 z-20">
+          <ChatInput {...chatInputProps} />
+        </div>
+      )}
     </main>
   );
 };

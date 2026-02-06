@@ -1,20 +1,65 @@
 @import 'tailwindcss';
 
 :root {
-  --bg-0: #09090b;
-  --bg-1: #0b0b0d;
-  --bg-2: #18181b;
-  --ink-1: #f4f4f5;
-  --ink-2: #e4e4e7;
-  --ink-3: #a1a1aa;
-  --line-1: #27272a;
-  --accent: #f4f4f5;
-  --accent-strong: #ffffff;
+  /* Foundation Colors */
+  --color-black-950: #09090b;
+  --color-black-900: #0b0b0d;
+  --color-black-800: #18181b;
+  --color-neutral-700: #27272a;
+  --color-neutral-500: #a1a1aa;
+  --color-neutral-200: #e4e4e7;
+  --color-neutral-100: #f4f4f5;
+  --color-white: #ffffff;
+
+  /* Semantic Colors */
+  --surface-canvas: var(--color-black-950);
+  --surface-panel: var(--color-black-900);
+  --surface-raised: var(--color-black-800);
+  --text-primary: var(--color-neutral-100);
+  --text-secondary: var(--color-neutral-200);
+  --text-muted: var(--color-neutral-500);
+  --stroke-default: var(--color-neutral-700);
+  --action-primary: var(--color-neutral-100);
+  --action-primary-strong: var(--color-white);
+
+  /* Spacing Tokens */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* Radius Tokens */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+
+  /* Motion Tokens */
+  --motion-fast: 180ms;
+  --motion-base: 220ms;
+  --motion-slow: 300ms;
+
+  /* Elevation and Layering */
   --shadow-1: 0 18px 48px rgba(0, 0, 0, 0.45);
   --shadow-2: 0 10px 28px rgba(0, 0, 0, 0.32);
-  --radius-1: 12px;
-  --radius-2: 16px;
-  --radius-3: 20px;
+  --z-titlebar: 40;
+  --z-sidebar: 30;
+  --z-modal: 70;
+
+  /* Backward-Compatible Aliases */
+  --bg-0: var(--surface-canvas);
+  --bg-1: var(--surface-panel);
+  --bg-2: var(--surface-raised);
+  --ink-1: var(--text-primary);
+  --ink-2: var(--text-secondary);
+  --ink-3: var(--text-muted);
+  --line-1: var(--stroke-default);
+  --accent: var(--action-primary);
+  --accent-strong: var(--action-primary-strong);
+  --radius-1: var(--radius-sm);
+  --radius-2: var(--radius-md);
+  --radius-3: var(--radius-lg);
 }
 
 html,

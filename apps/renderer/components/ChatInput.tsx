@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Search, StopCircle, BookOpen, PenLine } from 'lucide-react';
 import { t } from '../utils/i18n';
+import { IconButton } from './ui';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -163,29 +164,26 @@ const ChatInput: React.FC<ChatInputProps> = ({
         />
         <div className="pb-1 pr-1 flex items-center gap-2">
           {onReadObsidian && (
-            <button
-              type="button"
+            <IconButton
               onClick={onReadObsidian}
               disabled={obsidianReadDisabled || (disabled && !isStreaming)}
               title={t('obsidian.action.read')}
               className={obsidianButtonClass(!obsidianReadDisabled && !(disabled && !isStreaming))}
             >
               <BookOpen size={18} />
-            </button>
+            </IconButton>
           )}
           {onWriteObsidian && (
-            <button
-              type="button"
+            <IconButton
               onClick={onWriteObsidian}
               disabled={obsidianWriteDisabled || (disabled && !isStreaming)}
               title={t('obsidian.action.write')}
               className={obsidianButtonClass(!obsidianWriteDisabled && !(disabled && !isStreaming))}
             >
               <PenLine size={18} />
-            </button>
+            </IconButton>
           )}
-          <button
-            type="button"
+          <IconButton
             onClick={onToggleSearch}
             disabled={!searchAvailable || (disabled && !isStreaming)}
             aria-pressed={searchEnabled}
@@ -199,10 +197,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 ? 'hover:bg-white/5 hover:text-[var(--ink-1)]'
                 : 'opacity-50 cursor-not-allowed'
             }`}
+            active={searchEnabled}
           >
             <Search size={18} />
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={() => {
               if (isStreaming) {
                 onStop();
@@ -224,7 +223,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             ) : (
               <Send size={18} />
             )}
-          </button>
+          </IconButton>
         </div>
       </div>
     </div>

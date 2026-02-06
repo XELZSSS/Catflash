@@ -1,6 +1,7 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Role, ChatMessage } from '../types';
 import { t } from '../utils/i18n';
+import { formatMessageTime } from '../utils/time';
 
 interface ChatBubbleProps {
   message: ChatMessage;
@@ -103,10 +104,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, isStreaming = false })
 
           <div className="flex items-center gap-2 mt-1 px-1">
             <span className="text-[10px] text-[var(--ink-3)]">
-              {new Date(message.timestamp).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {message.timeLabel ?? formatMessageTime(message.timestamp)}
             </span>
           </div>
         </div>

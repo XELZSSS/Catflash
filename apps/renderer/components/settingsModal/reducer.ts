@@ -34,7 +34,10 @@ export type SettingsModalState = {
 type SettingsModalAction =
   | { type: 'replace'; payload: SettingsModalState }
   | { type: 'patch'; payload: Partial<SettingsModalState> }
-  | { type: 'set_tavily'; payload: { key: keyof TavilyConfig; value: TavilyConfig[keyof TavilyConfig] } }
+  | {
+      type: 'set_tavily';
+      payload: { key: keyof TavilyConfig; value: TavilyConfig[keyof TavilyConfig] };
+    }
   | { type: 'add_custom_header' }
   | { type: 'remove_custom_header'; payload: { index: number } }
   | { type: 'set_custom_header_key'; payload: { index: number; value: string } }

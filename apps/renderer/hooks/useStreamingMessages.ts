@@ -5,6 +5,7 @@ import { ChatService } from '../services/chatService';
 import { ChatMessage, Role } from '../types';
 import { t } from '../utils/i18n';
 import { parseThinkTags } from '../utils/streaming';
+import { formatMessageTime } from '../utils/time';
 
 type UseStreamingMessagesOptions = {
   chatService: ChatService;
@@ -60,11 +61,13 @@ export const useStreamingMessages = ({
     async (text: string) => {
       stopRequestedRef.current = false;
 
+      const userTimestamp = Date.now();
       const userMessage: ChatMessage = {
         id: uuidv4(),
         role: Role.User,
         text: text,
-        timestamp: Date.now(),
+        timestamp: userTimestamp,
+        timeLabel: formatMessageTime(userTimestamp),
       };
 
       setMessages((prev) => [...prev, userMessage]);
@@ -74,13 +77,15 @@ export const useStreamingMessages = ({
       try {
         const modelMessageId = uuidv4();
 
+        const modelTimestamp = Date.now();
         setMessages((prev) => [
           ...prev,
           {
             id: modelMessageId,
             role: Role.Model,
             text: '',
-            timestamp: Date.now(),
+            timestamp: modelTimestamp,
+            timeLabel: formatMessageTime(modelTimestamp),
           },
         ]);
         requestAnimationFrame(() => scrollToBottom('auto', true));
@@ -167,11 +172,13 @@ ${rawMessage}
 \`\`\`
 </details>`;
 
+        const errorTimestamp = Date.now();
         const errorMessage: ChatMessage = {
           id: uuidv4(),
           role: Role.Model,
           text: finalMessageText,
-          timestamp: Date.now(),
+          timestamp: errorTimestamp,
+          timeLabel: formatMessageTime(errorTimestamp),
           isError: true,
         };
         setMessages((prev) => [...prev, errorMessage]);
