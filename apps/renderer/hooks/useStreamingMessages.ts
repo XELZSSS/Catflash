@@ -134,7 +134,7 @@ export const useStreamingMessages = ({
           text: fullResponseClean,
           reasoning: fullResponseReasoning || undefined,
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Chat error:', error);
 
         let friendlyError = t('error.generic');

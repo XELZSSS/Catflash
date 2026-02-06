@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Menu } from 'lucide-react';
 import ChatBubble from './ChatBubble';
 import ChatInput from './ChatInput';
@@ -25,7 +25,7 @@ type ChatMainProps = {
   obsidianWriteDisabled?: boolean;
 };
 
-const ChatMain: React.FC<ChatMainProps> = ({
+const ChatMainComponent: React.FC<ChatMainProps> = ({
   messages,
   isStreaming,
   isLoading,
@@ -42,29 +42,48 @@ const ChatMain: React.FC<ChatMainProps> = ({
   obsidianReadDisabled,
   obsidianWriteDisabled,
 }) => {
-  const chatInputProps = {
-    onSend: onSendMessage,
-    disabled: isLoading,
-    isStreaming,
-    onStop: onStopStreaming,
-    searchEnabled,
-    searchAvailable,
-    onToggleSearch,
-    onReadObsidian,
-    onWriteObsidian,
-    obsidianReadDisabled,
-    obsidianWriteDisabled,
-  };
+  const chatInputProps = useMemo(
+    () => ({
+      onSend: onSendMessage,
+      disabled: isLoading,
+      isStreaming,
+      onStop: onStopStreaming,
+      searchEnabled,
+      searchAvailable,
+      onToggleSearch,
+      onReadObsidian,
+      onWriteObsidian,
+      obsidianReadDisabled,
+      obsidianWriteDisabled,
+    }),
+    [
+      isLoading,
+      isStreaming,
+      obsidianReadDisabled,
+      obsidianWriteDisabled,
+      onReadObsidian,
+      onSendMessage,
+      onStopStreaming,
+      onToggleSearch,
+      onWriteObsidian,
+      searchAvailable,
+      searchEnabled,
+    ]
+  );
   const hasMessages = messages.length > 0;
-  const { visibleItems, topSpacerHeight, bottomSpacerHeight, measureItem } = useVirtualList({
-    items: messages,
-    containerRef: messagesContainerRef as React.RefObject<HTMLElement>,
-    estimateSize: (msg) => {
+  const estimateMessageSize = useMemo(
+    () => (msg: ChatMessage) => {
       const base = msg.role === Role.User ? 84 : 96;
       const textLines = Math.max(1, Math.ceil((msg.text?.length ?? 0) / 56));
       const reasoningLines = Math.max(0, Math.ceil((msg.reasoning?.length ?? 0) / 64));
       return base + textLines * 20 + reasoningLines * 16;
     },
+    []
+  );
+  const { visibleItems, topSpacerHeight, bottomSpacerHeight, measureItem } = useVirtualList({
+    items: messages,
+    containerRef: messagesContainerRef,
+    estimateSize: estimateMessageSize,
     overscan: 8,
   });
 
@@ -132,4 +151,5 @@ const ChatMain: React.FC<ChatMainProps> = ({
   );
 };
 
+const ChatMain = React.memo(ChatMainComponent);
 export default ChatMain;

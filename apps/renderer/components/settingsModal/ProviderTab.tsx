@@ -151,7 +151,7 @@ const ProviderTab: React.FC<ProviderTabProps> = ({
                   type="text"
                   value={baseUrl ?? ''}
                   onChange={(event) => onBaseUrlChange(event.target.value)}
-                  placeholder="https://api.example.com/v1"
+                  placeholder={t('settings.modal.baseUrl.placeholder')}
                   className={smInputClass}
                   compact
                   autoComplete="off"

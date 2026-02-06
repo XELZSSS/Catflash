@@ -5,7 +5,11 @@ import { ProviderChat, ProviderDefinition } from './types';
 import { OPENAI_COMPATIBLE_MODEL_CATALOG } from './models';
 import { sanitizeApiKey } from './utils';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
-import { runToolCallLoop, streamStandardChatCompletions } from './openaiChatHelpers';
+import {
+  OpenAIChatMessages,
+  runToolCallLoop,
+  streamStandardChatCompletions,
+} from './openaiChatHelpers';
 
 export const OPENAI_COMPATIBLE_PROVIDER_ID: ProviderId = 'openai-compatible';
 const OPENAI_COMPATIBLE_PROXY_BASE_URL = 'http://localhost:4010/proxy/openai-compatible';
@@ -202,7 +206,7 @@ class OpenAICompatibleProvider extends OpenAIStyleProviderBase implements Provid
       } = await runToolCallLoop({
         client,
         model: this.modelName,
-        messages: messages as any,
+        messages: messages as OpenAIChatMessages,
         tools,
         tavilyConfig: this.tavilyConfig,
         buildToolMessages: this.buildToolMessages.bind(this),
@@ -217,7 +221,7 @@ class OpenAICompatibleProvider extends OpenAIStyleProviderBase implements Provid
       for await (const chunk of streamStandardChatCompletions({
         client,
         model: this.modelName,
-        messages: (tools ? workingMessages : messages) as any,
+        messages: tools ? workingMessages : (messages as OpenAIChatMessages),
       })) {
         if (chunk.reasoning) {
           yield `<think>${chunk.reasoning}</think>`;

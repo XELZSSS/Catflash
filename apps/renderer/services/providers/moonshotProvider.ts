@@ -5,7 +5,11 @@ import { ProviderChat, ProviderDefinition } from './types';
 import { MOONSHOT_MODEL_CATALOG } from './models';
 import { sanitizeApiKey } from './utils';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
-import { runToolCallLoop, streamStandardChatCompletions } from './openaiChatHelpers';
+import {
+  OpenAIChatMessages,
+  runToolCallLoop,
+  streamStandardChatCompletions,
+} from './openaiChatHelpers';
 
 export const MOONSHOT_PROVIDER_ID: ProviderId = 'moonshot';
 export const MOONSHOT_BASE_URL_CN = 'http://localhost:4010/proxy/moonshot-cn';
@@ -144,10 +148,11 @@ class MoonshotProvider extends OpenAIStyleProviderBase implements ProviderChat {
 
     try {
       const tools = this.buildTools();
+      const baseMessages = messages as OpenAIChatMessages;
       const { messages: workingMessages } = await runToolCallLoop({
         client,
         model: this.modelName,
-        messages: messages as any,
+        messages: baseMessages,
         tools,
         tavilyConfig: this.tavilyConfig,
         buildToolMessages: this.buildToolMessages.bind(this),
@@ -156,7 +161,7 @@ class MoonshotProvider extends OpenAIStyleProviderBase implements ProviderChat {
       for await (const chunk of streamStandardChatCompletions({
         client,
         model: this.modelName,
-        messages: (tools ? workingMessages : messages) as any,
+        messages: tools ? workingMessages : baseMessages,
       })) {
         if (chunk.reasoning) {
           yield `<think>${chunk.reasoning}</think>`;

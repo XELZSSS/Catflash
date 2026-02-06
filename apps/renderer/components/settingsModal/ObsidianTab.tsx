@@ -146,7 +146,7 @@ const ObsidianTab: React.FC<ObsidianTabProps> = ({
             type="text"
             value={vaultPath}
             onChange={(event) => onVaultPathChange(event.target.value)}
-            placeholder="C:\\Users\\you\\Documents\\Obsidian\\Vault"
+            placeholder={t('settings.modal.obsidian.vaultPath.placeholder')}
             className={fullInputClass}
             compact
             autoComplete="off"
@@ -162,7 +162,7 @@ const ObsidianTab: React.FC<ObsidianTabProps> = ({
               type="text"
               value={apiUrl}
               onChange={(event) => onApiUrlChange(event.target.value)}
-              placeholder="http://127.0.0.1:27123"
+              placeholder={t('settings.modal.obsidian.apiUrl.placeholder')}
               className={fullInputClass}
               compact
               autoComplete="off"
@@ -294,7 +294,7 @@ const ObsidianTab: React.FC<ObsidianTabProps> = ({
             type="text"
             value={writeHeading}
             onChange={(event) => onWriteHeadingChange(event.target.value)}
-            placeholder="## AI Draft"
+            placeholder={t('settings.modal.obsidian.writeHeading.placeholder')}
             className={fullInputClass}
             compact
           />

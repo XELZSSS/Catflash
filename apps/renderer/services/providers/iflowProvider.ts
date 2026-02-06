@@ -5,7 +5,11 @@ import { ProviderChat, ProviderDefinition } from './types';
 import { IFLOW_MODEL_CATALOG } from './models';
 import { sanitizeApiKey } from './utils';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
-import { runToolCallLoop, streamStandardChatCompletions } from './openaiChatHelpers';
+import {
+  OpenAIChatMessages,
+  runToolCallLoop,
+  streamStandardChatCompletions,
+} from './openaiChatHelpers';
 
 export const IFLOW_PROVIDER_ID: ProviderId = 'iflow';
 export const IFLOW_BASE_URL = 'http://localhost:4010/proxy/iflow';
@@ -139,10 +143,11 @@ class IflowProvider extends OpenAIStyleProviderBase implements ProviderChat {
 
     try {
       const tools = this.buildTools();
+      const baseMessages = messages as OpenAIChatMessages;
       const { messages: workingMessages } = await runToolCallLoop({
         client,
         model: this.modelName,
-        messages: messages as any,
+        messages: baseMessages,
         tools,
         tavilyConfig: this.tavilyConfig,
         buildToolMessages: this.buildToolMessages.bind(this),
@@ -151,7 +156,7 @@ class IflowProvider extends OpenAIStyleProviderBase implements ProviderChat {
       for await (const chunk of streamStandardChatCompletions({
         client,
         model: this.modelName,
-        messages: (tools ? workingMessages : messages) as any,
+        messages: tools ? workingMessages : baseMessages,
       })) {
         if (chunk.reasoning) {
           yield `<think>${chunk.reasoning}</think>`;

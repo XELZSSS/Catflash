@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { t } from '../utils/i18n';
 const WinIcon = ({ type }: { type: 'min' | 'max' | 'close' }) => {
   switch (type) {
     case 'min':
@@ -52,25 +53,27 @@ const TitleBar: React.FC = () => {
         <button
           className="titlebar-btn"
           onClick={() => window.gero?.minimize()}
-          aria-label="Minimize"
-          title="Minimize"
+          aria-label={t('titlebar.minimize')}
+          title={t('titlebar.minimize')}
         >
           <WinIcon type="min" />
         </button>
         <button
           className="titlebar-btn"
           onClick={() => window.gero?.toggleMaximize()}
-          aria-label={maximized ? 'Restore' : 'Maximize'}
-          title={maximized ? 'Restore' : 'Maximize'}
+          aria-label={maximized ? t('titlebar.restore') : t('titlebar.maximize')}
+          title={maximized ? t('titlebar.restore') : t('titlebar.maximize')}
         >
           <WinIcon type="max" />
-          <span className="sr-only">{maximized ? 'Restore' : 'Maximize'}</span>
+          <span className="sr-only">
+            {maximized ? t('titlebar.restore') : t('titlebar.maximize')}
+          </span>
         </button>
         <button
           className="titlebar-btn titlebar-btn-close"
           onClick={() => window.gero?.close()}
-          aria-label="Close"
-          title="Close"
+          aria-label={t('titlebar.close')}
+          title={t('titlebar.close')}
         >
           <WinIcon type="close" />
         </button>

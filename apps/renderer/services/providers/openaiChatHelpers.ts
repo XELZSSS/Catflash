@@ -23,11 +23,7 @@ type PreflightMessage = OpenAI.Chat.Completions.ChatCompletionMessage & {
 type RunToolLoopOptions = {
   client: OpenAI;
   model: string;
-  messages: Array<{
-    role: 'system' | 'user' | 'assistant' | 'tool';
-    content: string | null;
-    tool_calls?: ToolCall[];
-  }>;
+  messages: OpenAIChatMessages;
   tools?: OpenAI.Chat.Completions.ChatCompletionTool[];
   tavilyConfig?: TavilyConfig;
   maxRounds?: number;
@@ -36,8 +32,57 @@ type RunToolLoopOptions = {
   getAssistantMessageExtras?: (message: PreflightMessage) => Record<string, unknown> | null;
 };
 
+export type OpenAIChatMessages = Array<{
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | null;
+  tool_calls?: ToolCall[];
+}>;
+
+export type OpenAIChatCreateNonStreaming =
+  OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & {
+    extra_body?: Record<string, unknown>;
+  };
+
+export type OpenAIChatCreateStreaming =
+  OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming & {
+    extra_body?: Record<string, unknown>;
+  };
+
+export type OpenAIStreamChunk = {
+  choices?: Array<{
+    delta?: {
+      content?: string;
+      reasoning_content?: string;
+      reasoning_text?: string;
+      reasoning?: string;
+      reasoning_details?: Array<{ text?: string }>;
+    };
+    message?: {
+      content?: string;
+      reasoning_content?: string;
+      reasoning_text?: string;
+      reasoning?: string;
+      reasoning_details?: Array<{ text?: string }>;
+    };
+  }>;
+};
+
+export type TavilyToolArgs = {
+  query?: string;
+  search_depth?: 'basic' | 'advanced' | 'fast' | 'ultra-fast';
+  max_results?: number;
+  topic?: 'general' | 'news' | 'finance';
+  include_answer?: boolean;
+};
+
+type LegacyLoopMessage = {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | null;
+  tool_calls?: ToolCall[];
+};
+
 type RunToolLoopResult = {
-  messages: RunToolLoopOptions['messages'];
+  messages: OpenAIChatMessages;
   preflightMessage: PreflightMessage | null;
   hadToolCalls: boolean;
 };
@@ -69,7 +114,7 @@ export const runToolCallLoop = async ({
       tool_choice: 'auto',
       stream: false,
       ...(extraBody ? { extra_body: extraBody } : {}),
-    } as any);
+    } as OpenAIChatCreateNonStreaming);
 
     preflightMessage = (initialResponse?.choices?.[0]?.message as PreflightMessage) ?? null;
     const toolCalls = (preflightMessage?.tool_calls as ToolCall[]) ?? [];
@@ -88,7 +133,7 @@ export const runToolCallLoop = async ({
         content: preflightMessage?.content ?? null,
         tool_calls: toolCalls,
         ...extras,
-      },
+      } as LegacyLoopMessage,
       ...toolMessages,
     ];
   }
@@ -96,27 +141,10 @@ export const runToolCallLoop = async ({
   return { messages: workingMessages, preflightMessage, hadToolCalls };
 };
 
-type StreamChunk = {
-  choices?: Array<{
-    delta?: {
-      content?: string;
-      reasoning_content?: string;
-      reasoning_text?: string;
-      reasoning?: string;
-    };
-    message?: {
-      content?: string;
-      reasoning_content?: string;
-      reasoning_text?: string;
-      reasoning?: string;
-    };
-  }>;
-};
-
 type StreamOptions = {
   client: OpenAI;
   model: string;
-  messages: unknown;
+  messages: OpenAIChatMessages;
   extraBody?: Record<string, unknown>;
 };
 
@@ -131,7 +159,7 @@ export async function* streamStandardChatCompletions({
     messages,
     stream: true,
     ...(extraBody ? { extra_body: extraBody } : {}),
-  } as any)) as unknown as AsyncIterable<StreamChunk>;
+  } as OpenAIChatCreateStreaming)) as unknown as AsyncIterable<OpenAIStreamChunk>;
 
   for await (const chunk of stream) {
     const reasoningDelta =

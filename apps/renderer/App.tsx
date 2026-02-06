@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { ChatService } from './services/chatService';
-import { ChatMessage, ProviderId } from './types';
-import { t, getLanguage, setLanguage, applyLanguageToDocument, Language } from './utils/i18n';
+import { ChatMessage } from './types';
+import { t, getLanguage, applyLanguageToDocument, Language } from './utils/i18n';
 import { useChatSessions } from './hooks/useChatSessions';
 import { useStreamingMessages } from './hooks/useStreamingMessages';
 import { useSearchToggle } from './hooks/useSearchToggle';
 import { useObsidianActions } from './hooks/useObsidianActions';
+import { useAppSettings } from './hooks/useAppSettings';
 import Sidebar from './components/Sidebar';
 import ChatMain from './components/ChatMain';
 import TitleBar from './components/TitleBar';
-import { loadObsidianSettings, saveObsidianSettings } from './utils/obsidian';
+import { loadObsidianSettings } from './utils/obsidian';
 
 const SettingsModal = lazy(() => import('./components/SettingsModal'));
 
@@ -79,13 +80,6 @@ function App() {
   useEffect(() => {
     applyLanguageToDocument();
     document.title = t('app.title');
-    window.gero?.setTrayLanguage?.(language);
-    window.gero?.setTrayLabels?.({
-      open: t('tray.open'),
-      hide: t('tray.hide'),
-      toggleDevTools: t('tray.toggleDevTools'),
-      quit: t('tray.quit'),
-    });
   }, [language]);
 
   const tavilyAvailable = Boolean(providerSettings[currentProviderId]?.tavily?.apiKey);
@@ -107,68 +101,60 @@ function App() {
     if (streaming.isStreaming || streaming.isLoading) return;
     startNewChat();
   }, [startNewChat, streaming.isLoading, streaming.isStreaming]);
+  const handleSortOrderToggle = useCallback(() => {
+    setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+  }, [setSortOrder]);
+  const handleOpenSettings = useCallback(() => {
+    setIsSettingsOpen(true);
+  }, []);
+  const handleOpenSidebar = useCallback(() => {
+    setIsSidebarOpen(true);
+  }, []);
+  const handleCloseSidebar = useCallback(() => {
+    setIsSidebarOpen(false);
+  }, []);
+  const handleToggleSearch = useCallback(() => {
+    setSearchEnabled((prev) => !prev);
+  }, [setSearchEnabled]);
+  const isObsidianReadDisabled =
+    !obsidianAvailable ||
+    obsidianBusy ||
+    (obsidianSettings.mode === 'vault' && !obsidianSettings.vaultPath) ||
+    (obsidianSettings.readMode === 'selected' && !obsidianSettings.notePath) ||
+    streaming.isStreaming ||
+    streaming.isLoading;
+  const isObsidianWriteDisabled =
+    !obsidianAvailable ||
+    obsidianBusy ||
+    (obsidianSettings.mode === 'vault' && !obsidianSettings.vaultPath) ||
+    (obsidianSettings.readMode === 'selected' && !obsidianSettings.notePath) ||
+    streaming.isStreaming ||
+    streaming.isLoading;
 
-  const handleSaveSettings = (value: {
-    providerId: ProviderId;
-    modelName: string;
-    apiKey: string;
-    baseUrl?: string;
-    customHeaders?: Array<{ key: string; value: string }>;
-    tavily?: import('./types').TavilyConfig;
-  }) => {
-    chatService.setProvider(value.providerId);
-    const updatedSettings = chatService.updateProviderSettings(value.providerId, {
-      apiKey: value.apiKey,
-      modelName: value.modelName,
-      baseUrl: value.baseUrl,
-      customHeaders: value.customHeaders,
-      tavily: value.tavily,
+  const { syncTrayLabels, handleSaveSettings, handleSaveObsidian, handleLanguageChange } =
+    useAppSettings({
+      chatService,
+      providerSettings,
+      currentProviderId,
+      setProviderSettings,
+      setCurrentProviderId,
+      setCurrentModelName,
+      setCurrentApiKey,
+      setObsidianSettings,
+      setLanguageState,
+      startNewChat,
     });
-    setProviderSettings(chatService.getAllProviderSettings());
-    setCurrentProviderId(value.providerId);
-    setCurrentModelName(updatedSettings.modelName);
-    setCurrentApiKey(updatedSettings.apiKey ?? '');
-    const prev = providerSettings[value.providerId];
-    const shouldRestart =
-      value.providerId !== currentProviderId ||
-      !prev ||
-      prev.modelName !== updatedSettings.modelName ||
-      (prev.apiKey ?? '') !== (updatedSettings.apiKey ?? '') ||
-      (prev.baseUrl ?? '') !== (updatedSettings.baseUrl ?? '') ||
-      JSON.stringify(prev.customHeaders ?? []) !==
-        JSON.stringify(updatedSettings.customHeaders ?? []) ||
-      JSON.stringify(prev.tavily ?? {}) !== JSON.stringify(updatedSettings.tavily ?? {});
-    if (shouldRestart) {
-      startNewChat(); // Apply settings by starting a new chat
-    }
-  };
 
-  const handleSaveObsidian = (value: import('./types').ObsidianSettings) => {
-    setObsidianSettings(value);
-    saveObsidianSettings(value);
-  };
-
-  const handleLanguageChange = (nextLanguage: Language) => {
-    setLanguage(nextLanguage);
-    setLanguageState(nextLanguage);
-    window.gero?.setTrayLanguage?.(nextLanguage);
-    window.gero?.setTrayLabels?.({
-      open: t('tray.open'),
-      hide: t('tray.hide'),
-      toggleDevTools: t('tray.toggleDevTools'),
-      quit: t('tray.quit'),
-    });
-  };
+  useEffect(() => {
+    syncTrayLabels(language);
+  }, [language, syncTrayLabels]);
 
   return (
     <div className="app-shell flex h-screen text-[var(--ink-1)] overflow-hidden">
       <TitleBar />
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/80 z-20 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/80 z-20 lg:hidden" onClick={handleCloseSidebar} />
       )}
 
       {/* Settings Modal */}
@@ -204,7 +190,7 @@ function App() {
         onNewChatClick={handleNewChatClick}
         onSearchChange={setSearchQuery}
         onSortByChange={setSortBy}
-        onSortOrderToggle={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+        onSortOrderToggle={handleSortOrderToggle}
         onLoadSession={handleLoadSession}
         onStartEdit={handleStartEdit}
         onDeleteSession={handleDeleteSession}
@@ -214,7 +200,7 @@ function App() {
         onSaveEdit={handleSaveEdit}
         onCancelEdit={handleCancelEdit}
         onLanguageChange={handleLanguageChange}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={handleOpenSettings}
       />
 
       <ChatMain
@@ -224,29 +210,15 @@ function App() {
         messagesContainerRef={streaming.messagesContainerRef}
         messagesEndRef={streaming.messagesEndRef}
         onSendMessage={streaming.handleSendMessage}
-        onOpenSidebar={() => setIsSidebarOpen(true)}
+        onOpenSidebar={handleOpenSidebar}
         onStopStreaming={streaming.stopStreaming}
         searchEnabled={searchEnabled}
         searchAvailable={tavilyAvailable}
-        onToggleSearch={() => setSearchEnabled((prev) => !prev)}
+        onToggleSearch={handleToggleSearch}
         onReadObsidian={obsidianAvailable ? handleReadObsidian : undefined}
         onWriteObsidian={obsidianAvailable ? handleWriteObsidian : undefined}
-        obsidianReadDisabled={
-          !obsidianAvailable ||
-          obsidianBusy ||
-          (obsidianSettings.mode === 'vault' && !obsidianSettings.vaultPath) ||
-          (obsidianSettings.readMode === 'selected' && !obsidianSettings.notePath) ||
-          streaming.isStreaming ||
-          streaming.isLoading
-        }
-        obsidianWriteDisabled={
-          !obsidianAvailable ||
-          obsidianBusy ||
-          (obsidianSettings.mode === 'vault' && !obsidianSettings.vaultPath) ||
-          (obsidianSettings.readMode === 'selected' && !obsidianSettings.notePath) ||
-          streaming.isStreaming ||
-          streaming.isLoading
-        }
+        obsidianReadDisabled={isObsidianReadDisabled}
+        obsidianWriteDisabled={isObsidianWriteDisabled}
       />
     </div>
   );

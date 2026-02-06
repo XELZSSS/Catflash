@@ -20,7 +20,7 @@ interface ChatInputProps {
 
 const DRAFT_STORAGE_KEY = 'gemini_chat_input_draft';
 
-const ChatInput: React.FC<ChatInputProps> = ({
+const ChatInputComponent: React.FC<ChatInputProps> = ({
   onSend,
   disabled,
   isStreaming,
@@ -230,4 +230,5 @@ const ChatInput: React.FC<ChatInputProps> = ({
   );
 };
 
+const ChatInput = React.memo(ChatInputComponent);
 export default ChatInput;

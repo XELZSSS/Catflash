@@ -1,8 +1,8 @@
-import { RefObject, useCallback, useEffect, useMemo, useState } from 'react';
+import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type UseVirtualListOptions<T> = {
   items: T[];
-  containerRef: RefObject<HTMLElement>;
+  containerRef: RefObject<HTMLElement | null>;
   estimateSize: (item: T, index: number) => number;
   overscan?: number;
 };
@@ -22,6 +22,8 @@ export const useVirtualList = <T>({
   const [sizes, setSizes] = useState<number[]>([]);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
+  const frameRef = useRef<number | null>(null);
+  const metricsRef = useRef({ scrollTop: 0, viewportHeight: 0 });
 
   useEffect(() => {
     setSizes((prev) => {
@@ -65,18 +67,40 @@ export const useVirtualList = <T>({
     if (!container) return;
 
     const update = () => {
-      setScrollTop(container.scrollTop);
-      setViewportHeight(container.clientHeight);
+      const nextScrollTop = container.scrollTop;
+      const nextViewportHeight = container.clientHeight;
+      const prev = metricsRef.current;
+      if (prev.scrollTop === nextScrollTop && prev.viewportHeight === nextViewportHeight) {
+        return;
+      }
+      metricsRef.current = {
+        scrollTop: nextScrollTop,
+        viewportHeight: nextViewportHeight,
+      };
+      setScrollTop(nextScrollTop);
+      setViewportHeight(nextViewportHeight);
     };
-    update();
 
-    container.addEventListener('scroll', update, { passive: true });
-    const observer = new ResizeObserver(update);
+    const scheduleUpdate = () => {
+      if (frameRef.current !== null) return;
+      frameRef.current = window.requestAnimationFrame(() => {
+        frameRef.current = null;
+        update();
+      });
+    };
+    scheduleUpdate();
+
+    container.addEventListener('scroll', scheduleUpdate, { passive: true });
+    const observer = new ResizeObserver(scheduleUpdate);
     observer.observe(container);
 
     return () => {
-      container.removeEventListener('scroll', update);
+      container.removeEventListener('scroll', scheduleUpdate);
       observer.disconnect();
+      if (frameRef.current !== null) {
+        window.cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
     };
   }, [containerRef]);
 

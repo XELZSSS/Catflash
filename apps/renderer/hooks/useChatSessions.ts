@@ -67,6 +67,30 @@ export const useChatSessions = ({
   const sessionsRef = useRef<ChatSession[]>([]);
   const saveSessionTimerRef = useRef<number | null>(null);
 
+  const activateSessionContext = useCallback(
+    (session: ChatSession) => {
+      setCurrentSessionId(session.id);
+      setMessages(session.messages);
+
+      chatService.setProvider(session.provider);
+      chatService.setModelName(session.model);
+      setProviderSettings(chatService.getAllProviderSettings());
+      setCurrentProviderId(session.provider);
+      setCurrentModelName(session.model);
+      setCurrentApiKey(chatService.getApiKey() ?? '');
+
+      chatService.startChatWithHistory(session.messages);
+    },
+    [
+      chatService,
+      setCurrentApiKey,
+      setCurrentModelName,
+      setCurrentProviderId,
+      setMessages,
+      setProviderSettings,
+    ]
+  );
+
   useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
@@ -117,27 +141,9 @@ export const useChatSessions = ({
       return;
     }
 
-    setCurrentSessionId(activeSession.id);
-    setMessages(activeSession.messages);
-
-    chatService.setProvider(activeSession.provider);
-    chatService.setModelName(activeSession.model);
-    setProviderSettings(chatService.getAllProviderSettings());
-    setCurrentProviderId(activeSession.provider);
-    setCurrentModelName(activeSession.model);
-    setCurrentApiKey(chatService.getApiKey() ?? '');
-
-    chatService.startChatWithHistory(activeSession.messages);
+    activateSessionContext(activeSession);
     requestAnimationFrame(() => scrollToBottom('auto', true));
-  }, [
-    chatService,
-    scrollToBottom,
-    setCurrentApiKey,
-    setCurrentModelName,
-    setCurrentProviderId,
-    setMessages,
-    setProviderSettings,
-  ]);
+  }, [activateSessionContext, scrollToBottom]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -195,18 +201,8 @@ export const useChatSessions = ({
         return;
       }
 
-      setCurrentSessionId(session.id);
       setActiveSessionId(session.id);
-      setMessages(session.messages);
-
-      chatService.setProvider(session.provider);
-      chatService.setModelName(session.model);
-      setProviderSettings(chatService.getAllProviderSettings());
-      setCurrentProviderId(session.provider);
-      setCurrentModelName(session.model);
-      setCurrentApiKey(chatService.getApiKey() ?? '');
-
-      chatService.startChatWithHistory(session.messages);
+      activateSessionContext(session);
 
       if (onCloseSidebar) {
         onCloseSidebar();
@@ -214,18 +210,13 @@ export const useChatSessions = ({
       requestAnimationFrame(() => scrollToBottom('auto', true));
     },
     [
-      chatService,
+      activateSessionContext,
       currentSessionId,
       editingSessionId,
       isLoading,
       isStreaming,
       onCloseSidebar,
       scrollToBottom,
-      setCurrentApiKey,
-      setCurrentModelName,
-      setCurrentProviderId,
-      setMessages,
-      setProviderSettings,
     ]
   );
 
@@ -277,12 +268,19 @@ export const useChatSessions = ({
   const handleEditKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Enter') {
-        handleSaveEdit(e as any);
+        e.preventDefault();
+        e.stopPropagation();
+        if (editingSessionId && editTitleInput.trim()) {
+          const updated = updateSessionTitle(editingSessionId, editTitleInput.trim());
+          setSessions(updated);
+          setEditingSessionId(null);
+          setEditTitleInput('');
+        }
       } else if (e.key === 'Escape') {
         setEditingSessionId(null);
       }
     },
-    [handleSaveEdit]
+    [editTitleInput, editingSessionId]
   );
 
   const filteredSessions = useMemo(() => {

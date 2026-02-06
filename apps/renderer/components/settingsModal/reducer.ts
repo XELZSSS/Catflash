@@ -31,7 +31,7 @@ export type SettingsModalState = {
   activeTab: ActiveSettingsTab;
 };
 
-type SettingsModalAction =
+export type SettingsModalAction =
   | { type: 'replace'; payload: SettingsModalState }
   | { type: 'patch'; payload: Partial<SettingsModalState> }
   | {

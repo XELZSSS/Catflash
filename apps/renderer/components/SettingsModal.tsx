@@ -1,10 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Save, X } from 'lucide-react';
-import { ProviderId } from '../types';
+import { ProviderId, TavilyConfig } from '../types';
 import { t } from '../utils/i18n';
-import { getProviderDefaultModel, listProviderIds } from '../services/providers/registry';
 import {
-  DEFAULT_MAX_TOOL_CALL_ROUNDS,
   MAX_TOOL_CALL_ROUNDS,
   MIN_TOOL_CALL_ROUNDS,
   TOOL_CALL_MAX_ROUNDS_STORAGE_KEY,
@@ -12,106 +10,65 @@ import {
 import ProviderTab from './settingsModal/ProviderTab';
 import SearchTab from './settingsModal/SearchTab';
 import ObsidianTab from './settingsModal/ObsidianTab';
+import { resolveBaseUrlForRegion } from './settingsModal/constants';
+import { useObsidianTools } from './settingsModal/useObsidianTools';
+import { useSettingsForm } from './settingsModal/useSettingsForm';
 import {
-  providerMeta,
-  resolveBaseUrlForProvider,
-  resolveBaseUrlForRegion,
-} from './settingsModal/constants';
-import {
-  ActiveSettingsTab,
-  settingsModalReducer,
-  SettingsModalState,
-} from './settingsModal/reducer';
+  ProviderSettingsMap,
+  SaveObsidianPayload,
+  SaveSettingsPayload,
+} from './settingsModal/types';
 import { Button, Modal, Tabs } from './ui';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  providerSettings: Record<
-    ProviderId,
-    {
-      apiKey?: string;
-      modelName: string;
-      baseUrl?: string;
-      customHeaders?: Array<{ key: string; value: string }>;
-      tavily?: import('../types').TavilyConfig;
-    }
-  >;
+  providerSettings: ProviderSettingsMap;
   providerId: ProviderId;
   modelName: string;
   apiKey: string;
   baseUrl?: string;
   customHeaders?: Array<{ key: string; value: string }>;
-  tavily?: import('../types').TavilyConfig;
+  tavily?: TavilyConfig;
   obsidianSettings: import('../types').ObsidianSettings;
-  onSave: (value: {
-    providerId: ProviderId;
-    modelName: string;
-    apiKey: string;
-    baseUrl?: string;
-    customHeaders?: Array<{ key: string; value: string }>;
-    tavily?: import('../types').TavilyConfig;
-  }) => void;
-  onSaveObsidian: (value: import('../types').ObsidianSettings) => void;
+  onSave: (value: SaveSettingsPayload) => void;
+  onSaveObsidian: (value: SaveObsidianPayload) => void;
 }
 
-const ACTIVE_TAB_STORAGE_KEY = 'gemini_settings_active_tab';
-
-const getStoredToolRounds = () => {
-  if (typeof window === 'undefined') return String(DEFAULT_MAX_TOOL_CALL_ROUNDS);
-  return (
-    window.localStorage.getItem(TOOL_CALL_MAX_ROUNDS_STORAGE_KEY) ??
-    String(DEFAULT_MAX_TOOL_CALL_ROUNDS)
-  );
-};
-
-const getStoredActiveTab = (): ActiveSettingsTab => {
-  if (typeof window === 'undefined') return 'provider';
-  const stored = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
-  if (stored === 'provider' || stored === 'search' || stored === 'obsidian') return stored;
-  return 'provider';
-};
-
-const buildStateFromProps = (props: SettingsModalProps): SettingsModalState => ({
-  providerId: props.providerId,
-  modelName: props.modelName,
-  apiKey: props.apiKey,
-  baseUrl: resolveBaseUrlForProvider(props.providerId, props.baseUrl),
-  customHeaders: props.customHeaders ?? [],
-  tavily: props.tavily ?? {},
-  showApiKey: false,
-  showTavilyKey: false,
-  obsidianMode: props.obsidianSettings.mode,
-  obsidianVaultPath: props.obsidianSettings.vaultPath ?? '',
-  obsidianNotePath: props.obsidianSettings.notePath ?? '',
-  obsidianApiUrl: props.obsidianSettings.apiUrl ?? '',
-  obsidianApiKey: props.obsidianSettings.apiKey ?? '',
-  obsidianReadMode: props.obsidianSettings.readMode,
-  obsidianWriteMode: props.obsidianSettings.writeMode,
-  obsidianWriteHeading: props.obsidianSettings.writeHeading ?? '',
-  obsidianPreviewBeforeWrite: props.obsidianSettings.previewBeforeWrite,
-  obsidianNotes: [],
-  obsidianNotesLoading: false,
-  obsidianTesting: false,
-  obsidianTestStatus: 'idle',
-  obsidianSearchQuery: '',
-  obsidianSearchResults: [],
-  obsidianSearchLoading: false,
-  toolCallMaxRounds: getStoredToolRounds(),
-  activeTab: getStoredActiveTab(),
-});
-
-const SettingsModal: React.FC<SettingsModalProps> = (props) => {
-  const { isOpen, onClose, providerSettings, onSave, onSaveObsidian } = props;
-  const [state, dispatch] = useReducer(settingsModalReducer, props, buildStateFromProps);
+const SettingsModal: React.FC<SettingsModalProps> = ({
+  isOpen,
+  onClose,
+  providerSettings,
+  providerId,
+  modelName,
+  apiKey,
+  baseUrl,
+  customHeaders,
+  tavily,
+  obsidianSettings,
+  onSave,
+  onSaveObsidian,
+}) => {
+  const { state, dispatch, providerOptions, activeMeta, tabs, handleProviderChange } =
+    useSettingsForm({
+      isOpen,
+      providerId,
+      modelName,
+      apiKey,
+      baseUrl,
+      customHeaders,
+      tavily,
+      obsidianSettings,
+    });
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const obsidianNotePathRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    dispatch({ type: 'replace', payload: buildStateFromProps(props) });
-  }, [isOpen, props]);
+  const {
+    obsidianNotePathRef,
+    refreshObsidianNotes,
+    handleTestObsidianApi,
+    handleSearchObsidianNotes,
+    handleObsidianSearchKeyDown,
+  } = useObsidianTools({ state, dispatch, isOpen });
+  const overlayRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -120,156 +77,6 @@ const SettingsModal: React.FC<SettingsModalProps> = (props) => {
     }
     setPortalContainer(overlayRef.current);
   }, [isOpen]);
-
-  const providerOptions = useMemo(
-    () =>
-      listProviderIds().map((id) => ({
-        value: id,
-        label: providerMeta[id]?.label ?? id.charAt(0).toUpperCase() + id.slice(1),
-      })),
-    []
-  );
-
-  const activeMeta = providerMeta[state.providerId];
-  const tabs = useMemo(
-    () =>
-      [
-        { id: 'provider' as const, label: t('settings.modal.tab.model'), visible: true },
-        {
-          id: 'search' as const,
-          label: t('settings.modal.tab.search'),
-          visible: !!activeMeta?.supportsTavily,
-        },
-        { id: 'obsidian' as const, label: t('settings.modal.tab.obsidian'), visible: true },
-      ].filter((tab) => tab.visible),
-    [activeMeta]
-  );
-
-  useEffect(() => {
-    if (tabs.some((tab) => tab.id === state.activeTab)) return;
-    dispatch({ type: 'patch', payload: { activeTab: 'provider' } });
-  }, [state.activeTab, tabs]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, state.activeTab);
-    } catch (error) {
-      console.warn('Failed to persist settings tab:', error);
-    }
-  }, [state.activeTab]);
-
-  useEffect(() => {
-    if (state.obsidianMode === 'plugin' && state.obsidianReadMode === 'recent') {
-      dispatch({ type: 'patch', payload: { obsidianReadMode: 'active' } });
-    }
-  }, [state.obsidianMode, state.obsidianReadMode]);
-
-  const refreshObsidianNotes = useCallback(async () => {
-    if (
-      state.obsidianMode !== 'vault' ||
-      !state.obsidianVaultPath ||
-      !window.gero?.obsidian?.listMarkdown
-    ) {
-      dispatch({ type: 'patch', payload: { obsidianNotes: [] } });
-      return;
-    }
-    dispatch({ type: 'patch', payload: { obsidianNotesLoading: true } });
-    try {
-      const notes = await window.gero.obsidian.listMarkdown(state.obsidianVaultPath);
-      dispatch({ type: 'patch', payload: { obsidianNotes: notes ?? [] } });
-    } catch (error) {
-      console.error('Failed to load Obsidian notes:', error);
-      dispatch({ type: 'patch', payload: { obsidianNotes: [] } });
-    } finally {
-      dispatch({ type: 'patch', payload: { obsidianNotesLoading: false } });
-    }
-  }, [state.obsidianMode, state.obsidianVaultPath]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    refreshObsidianNotes();
-  }, [isOpen, refreshObsidianNotes]);
-
-  const handleProviderChange = (nextProviderId: ProviderId) => {
-    const nextSettings = providerSettings[nextProviderId];
-    dispatch({
-      type: 'patch',
-      payload: {
-        providerId: nextProviderId,
-        modelName: nextSettings?.modelName ?? getProviderDefaultModel(nextProviderId),
-        apiKey: nextSettings?.apiKey ?? '',
-        baseUrl: resolveBaseUrlForProvider(nextProviderId, nextSettings?.baseUrl),
-        customHeaders: nextSettings?.customHeaders ?? [],
-        tavily: nextSettings?.tavily ?? {},
-      },
-    });
-  };
-
-  const handleTestObsidianApi = useCallback(async () => {
-    if (!state.obsidianApiUrl) return;
-    dispatch({ type: 'patch', payload: { obsidianTesting: true, obsidianTestStatus: 'idle' } });
-    try {
-      const response = await fetch(`${state.obsidianApiUrl.replace(/\/+$/, '')}/`, {
-        headers: state.obsidianApiKey
-          ? { Authorization: `Bearer ${state.obsidianApiKey}` }
-          : undefined,
-      });
-      dispatch({ type: 'patch', payload: { obsidianTestStatus: response.ok ? 'ok' : 'fail' } });
-    } catch (error) {
-      console.error('Failed to test Obsidian API:', error);
-      dispatch({ type: 'patch', payload: { obsidianTestStatus: 'fail' } });
-    } finally {
-      dispatch({ type: 'patch', payload: { obsidianTesting: false } });
-    }
-  }, [state.obsidianApiKey, state.obsidianApiUrl]);
-
-  const handleSearchObsidianNotes = useCallback(async () => {
-    if (!state.obsidianApiUrl || !state.obsidianSearchQuery.trim()) {
-      dispatch({ type: 'patch', payload: { obsidianSearchResults: [] } });
-      return;
-    }
-    dispatch({ type: 'patch', payload: { obsidianSearchLoading: true } });
-    try {
-      const response = await fetch(
-        `${state.obsidianApiUrl.replace(/\/+$/, '')}/search/simple/?query=${encodeURIComponent(
-          state.obsidianSearchQuery.trim()
-        )}`,
-        {
-          method: 'POST',
-          headers: state.obsidianApiKey
-            ? { Authorization: `Bearer ${state.obsidianApiKey}` }
-            : undefined,
-        }
-      );
-      if (!response.ok) throw new Error(`Search failed: ${response.status}`);
-      const payload = (await response.json()) as { results?: Array<Record<string, unknown>> };
-      const paths = (Array.isArray(payload?.results) ? payload.results : [])
-        .map((item) =>
-          String(
-            (item as any).path ??
-              (item as any).filename ??
-              (item as any).file ??
-              (item as any).name ??
-              ''
-          )
-        )
-        .filter((value) => value && value !== 'undefined')
-        .slice(0, 20);
-      dispatch({ type: 'patch', payload: { obsidianSearchResults: paths } });
-    } catch (error) {
-      console.error('Failed to search Obsidian notes:', error);
-      dispatch({ type: 'patch', payload: { obsidianSearchResults: [] } });
-    } finally {
-      dispatch({ type: 'patch', payload: { obsidianSearchLoading: false } });
-    }
-  }, [state.obsidianApiKey, state.obsidianApiUrl, state.obsidianSearchQuery]);
-
-  const handleObsidianSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    handleSearchObsidianNotes();
-  };
 
   const handleSave = () => {
     const parsedRounds = Number.parseInt(state.toolCallMaxRounds, 10);
@@ -322,7 +129,7 @@ const SettingsModal: React.FC<SettingsModalProps> = (props) => {
             onClick={onClose}
             variant="ghost"
             size="sm"
-            className="!px-1.5 !py-1 text-[var(--ink-3)] hover:text-[var(--ink-1)]"
+            className="!px-1.5 !py-1 !bg-transparent hover:!bg-transparent text-[var(--ink-3)] hover:text-[var(--ink-1)]"
             aria-label={t('settings.modal.cancel')}
           >
             <X size={18} />
@@ -351,7 +158,9 @@ const SettingsModal: React.FC<SettingsModalProps> = (props) => {
                 supportsCustomHeaders={activeMeta?.supportsCustomHeaders}
                 supportsRegion={activeMeta?.supportsRegion}
                 portalContainer={portalContainer}
-                onProviderChange={handleProviderChange}
+                onProviderChange={(nextProviderId) =>
+                  handleProviderChange(nextProviderId, providerSettings)
+                }
                 onModelNameChange={(value) =>
                   dispatch({ type: 'patch', payload: { modelName: value } })
                 }

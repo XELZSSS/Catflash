@@ -5,7 +5,11 @@ import { ProviderChat, ProviderDefinition } from './types';
 import { DEEPSEEK_MODEL_CATALOG } from './models';
 import { sanitizeApiKey } from './utils';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
-import { runToolCallLoop, streamStandardChatCompletions } from './openaiChatHelpers';
+import {
+  OpenAIChatMessages,
+  runToolCallLoop,
+  streamStandardChatCompletions,
+} from './openaiChatHelpers';
 
 export const DEEPSEEK_PROVIDER_ID: ProviderId = 'deepseek';
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com';
@@ -107,10 +111,11 @@ class DeepSeekProvider extends OpenAIStyleProviderBase implements ProviderChat {
 
     try {
       const tools = this.buildTools();
+      const baseMessages = messages as OpenAIChatMessages;
       const { messages: workingMessages } = await runToolCallLoop({
         client,
         model: this.modelName,
-        messages: messages as any,
+        messages: baseMessages,
         tools,
         tavilyConfig: this.tavilyConfig,
         buildToolMessages: this.buildToolMessages.bind(this),
@@ -124,7 +129,7 @@ class DeepSeekProvider extends OpenAIStyleProviderBase implements ProviderChat {
       for await (const chunk of streamStandardChatCompletions({
         client,
         model: this.modelName,
-        messages: (tools ? workingMessages : messages) as any,
+        messages: tools ? workingMessages : baseMessages,
       })) {
         if (chunk.reasoning) {
           yield `<think>${chunk.reasoning}</think>`;

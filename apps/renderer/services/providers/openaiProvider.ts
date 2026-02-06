@@ -6,6 +6,11 @@ import { buildSystemInstruction } from './prompts';
 import { OPENAI_MODEL_CATALOG } from './models';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
 import { getMaxToolCallRounds, sanitizeApiKey } from './utils';
+import {
+  OpenAIChatCreateStreaming,
+  OpenAIChatMessages,
+  OpenAIStreamChunk,
+} from './openaiChatHelpers';
 
 export const OPENAI_PROVIDER_ID: ProviderId = 'openai';
 const FALLBACK_OPENAI_MODEL = 'gpt-5.2';
@@ -250,24 +255,9 @@ class OpenAIProvider extends OpenAIStyleProviderBase implements ProviderChat {
         } else {
           const stream = (await client.chat.completions.create({
             model: this.modelName,
-            messages: workingMessages as any,
+            messages: workingMessages as OpenAIChatMessages,
             stream: true,
-          })) as unknown as AsyncIterable<{
-            choices?: Array<{
-              delta?: {
-                content?: string;
-                reasoning_content?: string;
-                reasoning_text?: string;
-                reasoning?: string;
-              };
-              message?: {
-                content?: string;
-                reasoning_content?: string;
-                reasoning_text?: string;
-                reasoning?: string;
-              };
-            }>;
-          }>;
+          } as OpenAIChatCreateStreaming)) as unknown as AsyncIterable<OpenAIStreamChunk>;
 
           for await (const chunk of stream) {
             const reasoningDelta =

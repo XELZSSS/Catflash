@@ -9,6 +9,7 @@ import {
   getDefaultTavilyConfig,
   normalizeTavilyConfig,
 } from './tavily';
+import { OpenAIChatMessages, OpenAIStreamChunk, TavilyToolArgs } from './openaiChatHelpers';
 
 export const GLM_PROVIDER_ID: ProviderId = 'glm';
 export const GLM_BASE_URL_CN = 'http://localhost:4010/proxy/glm-cn/chat/completions';
@@ -169,7 +170,7 @@ class GlmProvider implements ProviderChat {
     };
 
     if (tools) {
-      let workingMessages = messages as any;
+      let workingMessages = messages as OpenAIChatMessages;
       const maxToolRounds = getMaxToolCallRounds();
       for (let round = 0; round < maxToolRounds; round += 1) {
         const preflight = await fetch(this.baseUrl, {
@@ -210,7 +211,7 @@ class GlmProvider implements ProviderChat {
                 }),
               };
             }
-            let args: { query?: string } = {};
+            let args: TavilyToolArgs = {};
             try {
               args = call.function?.arguments ? JSON.parse(call.function.arguments) : {};
             } catch {
@@ -223,7 +224,7 @@ class GlmProvider implements ProviderChat {
               };
             }
             try {
-              const result = await callTavilySearch(this.tavilyConfig, args as any);
+              const result = await callTavilySearch(this.tavilyConfig, args);
               return {
                 tool_call_id: call.id,
                 content: JSON.stringify(result),
@@ -295,9 +296,9 @@ class GlmProvider implements ProviderChat {
             break;
           }
 
-          let chunk: any;
+          let chunk: OpenAIStreamChunk | null = null;
           try {
-            chunk = JSON.parse(payloadText);
+            chunk = JSON.parse(payloadText) as OpenAIStreamChunk;
           } catch {
             continue;
           }

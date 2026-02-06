@@ -1,6 +1,7 @@
 import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
 import { buildSystemInstruction } from './prompts';
 import { callTavilySearch } from './tavily';
+import { TavilyToolArgs } from './openaiChatHelpers';
 
 type ToolCall = {
   id: string;
@@ -55,7 +56,7 @@ export abstract class OpenAIStyleProviderBase {
             }),
           };
         }
-        let args: { query?: string } = {};
+        let args: TavilyToolArgs = {};
         try {
           args = call.function?.arguments ? JSON.parse(call.function.arguments) : {};
         } catch {
@@ -68,7 +69,7 @@ export abstract class OpenAIStyleProviderBase {
           };
         }
         try {
-          const result = await callTavilySearch(tavilyConfig, args as any);
+          const result = await callTavilySearch(tavilyConfig, args);
           return {
             tool_call_id: call.id,
             content: JSON.stringify(result),

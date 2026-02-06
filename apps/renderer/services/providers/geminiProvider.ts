@@ -5,6 +5,7 @@ import { buildSystemInstruction } from './prompts';
 import { GEMINI_MODEL_CATALOG } from './models';
 import { sanitizeApiKey } from './utils';
 import { callTavilySearch, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
+import { TavilyToolArgs } from './openaiChatHelpers';
 
 export const GEMINI_PROVIDER_ID: ProviderId = 'gemini';
 export const GEMINI_MODEL_NAME = 'gemini-2.5-flash';
@@ -251,7 +252,7 @@ class GeminiProvider implements ProviderChat {
           });
           continue;
         }
-        const args = (call.args ?? {}) as { query?: string };
+        const args = (call.args ?? {}) as TavilyToolArgs;
         if (!args.query) {
           toolParts.push({
             functionResponse: {
@@ -262,7 +263,7 @@ class GeminiProvider implements ProviderChat {
           continue;
         }
         try {
-          const result = await callTavilySearch(this.tavilyConfig, args as any);
+          const result = await callTavilySearch(this.tavilyConfig, args);
           toolParts.push({
             functionResponse: { name: call.name, response: result as Record<string, unknown> },
           });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
   Trash2,
   Settings,
@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { ChatSession } from '../types';
 import { Language, t } from '../utils/i18n';
-import { useRef } from 'react';
 import { useVirtualList } from '../hooks/useVirtualList';
 import { Button, IconButton, Input } from './ui';
 
@@ -44,7 +43,7 @@ type SidebarProps = {
   onOpenSettings: () => void;
 };
 
-const Sidebar: React.FC<SidebarProps> = ({
+const SidebarComponent: React.FC<SidebarProps> = ({
   isSidebarOpen,
   currentSessionId,
   sessions,
@@ -71,10 +70,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
 }) => {
   const listContainerRef = useRef<HTMLDivElement>(null);
+  const estimateItemSize = useCallback(() => 44, []);
   const { visibleItems, topSpacerHeight, bottomSpacerHeight, measureItem } = useVirtualList({
     items: filteredSessions,
-    containerRef: listContainerRef as React.RefObject<HTMLElement>,
-    estimateSize: () => 44,
+    containerRef: listContainerRef,
+    estimateSize: estimateItemSize,
     overscan: 10,
   });
 
@@ -249,4 +249,5 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 };
 
+const Sidebar = React.memo(SidebarComponent);
 export default Sidebar;

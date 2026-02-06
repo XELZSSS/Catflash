@@ -5,7 +5,12 @@ import { ProviderChat, ProviderDefinition } from './types';
 import { MINIMAX_MODEL_CATALOG } from './models';
 import { sanitizeApiKey } from './utils';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
-import { runToolCallLoop } from './openaiChatHelpers';
+import {
+  OpenAIChatCreateStreaming,
+  OpenAIChatMessages,
+  OpenAIStreamChunk,
+  runToolCallLoop,
+} from './openaiChatHelpers';
 
 export const MINIMAX_PROVIDER_ID: ProviderId = 'minimax';
 export const DEFAULT_MINIMAX_BASE_URL = 'http://localhost:4010/proxy/minimax-intl';
@@ -146,10 +151,11 @@ class MiniMaxProvider extends OpenAIStyleProviderBase implements ProviderChat {
     try {
       const tools = this.buildTools();
       if (tools) {
+        const baseMessages = messages as OpenAIChatMessages;
         const { messages: workingMessages } = await runToolCallLoop({
           client,
           model: this.modelName,
-          messages: messages as any,
+          messages: baseMessages,
           tools,
           tavilyConfig: this.tavilyConfig,
           extraBody: { reasoning_split: true },
@@ -162,17 +168,10 @@ class MiniMaxProvider extends OpenAIStyleProviderBase implements ProviderChat {
 
         const stream = (await client.chat.completions.create({
           model: this.modelName,
-          messages: workingMessages as any,
+          messages: workingMessages,
           stream: true,
           extra_body: { reasoning_split: true },
-        } as any)) as unknown as AsyncIterable<{
-          choices?: Array<{
-            delta?: {
-              content?: string;
-              reasoning_details?: Array<{ text?: string }>;
-            };
-          }>;
-        }>;
+        } as OpenAIChatCreateStreaming)) as unknown as AsyncIterable<OpenAIStreamChunk>;
 
         for await (const chunk of stream) {
           const delta = chunk.choices?.[0]?.delta;
@@ -192,17 +191,10 @@ class MiniMaxProvider extends OpenAIStyleProviderBase implements ProviderChat {
       } else {
         const stream = (await client.chat.completions.create({
           model: this.modelName,
-          messages,
+          messages: messages as OpenAIChatMessages,
           stream: true,
           extra_body: { reasoning_split: true },
-        } as any)) as unknown as AsyncIterable<{
-          choices?: Array<{
-            delta?: {
-              content?: string;
-              reasoning_details?: Array<{ text?: string }>;
-            };
-          }>;
-        }>;
+        } as OpenAIChatCreateStreaming)) as unknown as AsyncIterable<OpenAIStreamChunk>;
 
         for await (const chunk of stream) {
           const delta = chunk.choices?.[0]?.delta;
