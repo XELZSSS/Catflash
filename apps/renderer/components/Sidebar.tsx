@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { ChatSession } from '../types';
 import { Language, t } from '../utils/i18n';
+import { useRef } from 'react';
+import { useVirtualList } from '../hooks/useVirtualList';
 
 type SidebarProps = {
   isSidebarOpen: boolean;
@@ -67,6 +69,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLanguageChange,
   onOpenSettings,
 }) => {
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  const { visibleItems, topSpacerHeight, bottomSpacerHeight, measureItem } = useVirtualList({
+    items: filteredSessions,
+    containerRef: listContainerRef as React.RefObject<HTMLElement>,
+    estimateSize: () => 44,
+    overscan: 10,
+  });
+
   const sortButtonClass = (active: boolean) =>
     `p-1.5 rounded-md transition-all ${
       active
@@ -133,7 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-1">
+        <div ref={listContainerRef} className="flex-1 overflow-y-auto pr-1">
           <div className="text-[10px] font-bold text-[var(--ink-3)] uppercase tracking-wider mb-2 px-2">
             {t('sidebar.history')}
           </div>
@@ -148,66 +158,67 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <div className="space-y-0.5">
-              {filteredSessions.map((session) => (
-                <div
-                  key={session.id}
-                  onClick={() => onLoadSession(session)}
-                  className={`group flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm border border-transparent ${
-                    currentSessionId === session.id && editingSessionId !== session.id
-                      ? 'bg-[var(--bg-2)] text-[var(--ink-1)] border-[var(--line-1)]'
-                      : 'text-[var(--ink-2)] hover:bg-[var(--bg-2)] hover:text-[var(--ink-1)]'
-                  }`}
-                >
-                  {editingSessionId === session.id ? (
-                    /* Edit Mode */
-                    <div className="flex items-center gap-1 w-full" onClick={onEditInputClick}>
-                      <input
-                        type="text"
-                        autoFocus
-                        value={editTitleInput}
-                        onChange={(e) => onEditTitleInputChange(e.target.value)}
-                        onKeyDown={onEditKeyDown}
-                        className="flex-1 bg-[var(--bg-0)] text-[var(--ink-1)] text-xs px-2 py-1.5 rounded border border-[var(--line-1)] focus:outline-none focus:border-[var(--ink-3)]"
-                      />
-                      <button
-                        onClick={onSaveEdit}
-                        className="p-1 hover:text-[var(--ink-1)] text-[var(--ink-3)] transition-colors"
-                      >
-                        <Check size={14} />
-                      </button>
-                      <button
-                        onClick={onCancelEdit}
-                        className="p-1 hover:text-red-400 text-[var(--ink-3)] transition-colors"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    /* Display Mode */
-                    <>
-                      <div className="flex items-center gap-2 truncate flex-1">
-                        <span className="truncate">{session.title}</span>
-                      </div>
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div style={{ height: `${topSpacerHeight}px` }} />
+              {visibleItems.map(({ item: session, index }) => (
+                <div key={session.id} ref={(node) => measureItem(index, node as HTMLDivElement)}>
+                  <div
+                    onClick={() => onLoadSession(session)}
+                    className={`group flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm border border-transparent ${
+                      currentSessionId === session.id && editingSessionId !== session.id
+                        ? 'bg-[var(--bg-2)] text-[var(--ink-1)] border-[var(--line-1)]'
+                        : 'text-[var(--ink-2)] hover:bg-[var(--bg-2)] hover:text-[var(--ink-1)]'
+                    }`}
+                  >
+                    {editingSessionId === session.id ? (
+                      <div className="flex items-center gap-1 w-full" onClick={onEditInputClick}>
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editTitleInput}
+                          onChange={(e) => onEditTitleInputChange(e.target.value)}
+                          onKeyDown={onEditKeyDown}
+                          className="flex-1 bg-[var(--bg-0)] text-[var(--ink-1)] text-xs px-2 py-1.5 rounded border border-[var(--line-1)] focus:outline-none focus:border-[var(--ink-3)]"
+                        />
                         <button
-                          onClick={(e) => onStartEdit(e, session)}
-                          className="p-1.5 text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors rounded hover:bg-[var(--bg-2)]"
-                          title={t('sidebar.editTitle')}
+                          onClick={onSaveEdit}
+                          className="p-1 hover:text-[var(--ink-1)] text-[var(--ink-3)] transition-colors"
                         >
-                          <Edit2 size={13} />
+                          <Check size={14} />
                         </button>
                         <button
-                          onClick={(e) => onDeleteSession(e, session.id)}
-                          className="p-1.5 text-[var(--ink-3)] hover:text-red-400 transition-colors rounded hover:bg-[var(--bg-2)]"
-                          title={t('sidebar.deleteTitle')}
+                          onClick={onCancelEdit}
+                          className="p-1 hover:text-red-400 text-[var(--ink-3)] transition-colors"
                         >
-                          <Trash2 size={13} />
+                          <X size={14} />
                         </button>
                       </div>
-                    </>
-                  )}
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2 truncate flex-1">
+                          <span className="truncate">{session.title}</span>
+                        </div>
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => onStartEdit(e, session)}
+                            className="p-1.5 text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors rounded hover:bg-[var(--bg-2)]"
+                            title={t('sidebar.editTitle')}
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            onClick={(e) => onDeleteSession(e, session.id)}
+                            className="p-1.5 text-[var(--ink-3)] hover:text-red-400 transition-colors rounded hover:bg-[var(--bg-2)]"
+                            title={t('sidebar.deleteTitle')}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
+              <div style={{ height: `${bottomSpacerHeight}px` }} />
             </div>
           )}
         </div>

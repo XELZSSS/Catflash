@@ -66,7 +66,7 @@ body.electron .chat-main {
 .titlebar {
   position: fixed;
   top: 0;
-  left: 18rem;
+  left: 0;
   right: 0;
   height: 36px;
   display: flex;
@@ -76,6 +76,12 @@ body.electron .chat-main {
   z-index: 40;
   -webkit-app-region: drag;
   border-bottom: none;
+}
+
+@media (min-width: 1024px) {
+  .titlebar {
+    left: 18rem;
+  }
 }
 
 .titlebar-no-drag {

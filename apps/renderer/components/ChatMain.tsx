@@ -5,6 +5,7 @@ import ChatInput from './ChatInput';
 import WelcomeScreen from './WelcomeScreen';
 import { ChatMessage, Role } from '../types';
 import { t } from '../utils/i18n';
+import { useVirtualList } from '../hooks/useVirtualList';
 
 type ChatMainProps = {
   messages: ChatMessage[];
@@ -57,6 +58,17 @@ const ChatMain: React.FC<ChatMainProps> = ({
     />
   );
   const hasMessages = messages.length > 0;
+  const { visibleItems, topSpacerHeight, bottomSpacerHeight, measureItem } = useVirtualList({
+    items: messages,
+    containerRef: messagesContainerRef as React.RefObject<HTMLElement>,
+    estimateSize: (msg) => {
+      const base = msg.role === Role.User ? 84 : 96;
+      const textLines = Math.max(1, Math.ceil((msg.text?.length ?? 0) / 56));
+      const reasoningLines = Math.max(0, Math.ceil((msg.reasoning?.length ?? 0) / 64));
+      return base + textLines * 20 + reasoningLines * 16;
+    },
+    overscan: 8,
+  });
 
   return (
     <main className="chat-main flex-1 flex flex-col h-full relative bg-transparent pt-0">
@@ -90,15 +102,18 @@ const ChatMain: React.FC<ChatMainProps> = ({
             />
           ) : (
             <>
-              {messages.map((msg, index) => (
-                <ChatBubble
-                  key={msg.id}
-                  message={msg}
-                  isStreaming={
-                    isStreaming && index === messages.length - 1 && msg.role === Role.Model
-                  }
-                />
+              <div style={{ height: `${topSpacerHeight}px` }} />
+              {visibleItems.map(({ item: msg, index }) => (
+                <div key={msg.id} ref={(node) => measureItem(index, node)}>
+                  <ChatBubble
+                    message={msg}
+                    isStreaming={
+                      isStreaming && index === messages.length - 1 && msg.role === Role.Model
+                    }
+                  />
+                </div>
               ))}
+              <div style={{ height: `${bottomSpacerHeight}px` }} />
               {isStreaming && <div className="flex justify-start mb-6"></div>}
               <div ref={messagesEndRef} className="h-4" />
             </>
