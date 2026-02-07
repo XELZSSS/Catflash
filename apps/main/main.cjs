@@ -1,5 +1,5 @@
 /* global __dirname */
-const { app, Menu, globalShortcut, ipcMain } = require('electron');
+const { app, Menu, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -15,6 +15,7 @@ const { createMainWindow, getMainWindow, registerWindowIpcHandlers, showWindow }
 const { createTray, setTrayLanguage, setTrayLabels } = require(resolveMainModule('tray'));
 const { registerObsidianIpcHandlers } = require(resolveMainModule('obsidian'));
 const { startProxy, stopProxy } = require(resolveMainModule('proxy'));
+const { registerAppIpcHandlers } = require(resolveMainModule('ipc'));
 
 const isDev = !app.isPackaged;
 let isQuitting = false;
@@ -48,14 +49,12 @@ app.on('activate', () => {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
-  registerWindowIpcHandlers();
-  ipcMain.handle('tray:set-language', (_event, language) => {
-    setTrayLanguage(language);
+  registerAppIpcHandlers({
+    registerWindowIpcHandlers,
+    registerObsidianIpcHandlers,
+    setTrayLanguage,
+    setTrayLabels,
   });
-  ipcMain.handle('tray:set-labels', (_event, labels) => {
-    setTrayLabels(labels);
-  });
-  registerObsidianIpcHandlers();
   startProxy(isDev);
   createTray({
     isDev,
