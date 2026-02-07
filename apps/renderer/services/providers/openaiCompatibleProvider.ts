@@ -132,9 +132,11 @@ class OpenAICompatibleProvider extends OpenAIStyleProviderBase implements Provid
   }
 
   setBaseUrl(baseUrl?: string): void {
-    const nextUrl = baseUrl?.trim();
-    if (nextUrl && nextUrl !== this.targetBaseUrl) {
-      this.targetBaseUrl = resolveBaseUrl(nextUrl);
+    const nextUrl = baseUrl?.trim()
+      ? resolveBaseUrl(baseUrl.trim())
+      : getDefaultOpenAICompatibleBaseUrl();
+    if (nextUrl !== this.targetBaseUrl) {
+      this.targetBaseUrl = nextUrl;
       this.client = null;
     }
   }
@@ -215,20 +217,19 @@ class OpenAICompatibleProvider extends OpenAIStyleProviderBase implements Provid
       if (tools && !hadToolCalls && preflightMessage?.content) {
         fullResponse = preflightMessage.content;
         yield fullResponse;
-        return;
-      }
-
-      for await (const chunk of streamStandardChatCompletions({
-        client,
-        model: this.modelName,
-        messages: tools ? workingMessages : (messages as OpenAIChatMessages),
-      })) {
-        if (chunk.reasoning) {
-          yield `<think>${chunk.reasoning}</think>`;
-        }
-        if (chunk.content) {
-          fullResponse += chunk.content;
-          yield chunk.content;
+      } else {
+        for await (const chunk of streamStandardChatCompletions({
+          client,
+          model: this.modelName,
+          messages: tools ? workingMessages : (messages as OpenAIChatMessages),
+        })) {
+          if (chunk.reasoning) {
+            yield `<think>${chunk.reasoning}</think>`;
+          }
+          if (chunk.content) {
+            fullResponse += chunk.content;
+            yield chunk.content;
+          }
         }
       }
 

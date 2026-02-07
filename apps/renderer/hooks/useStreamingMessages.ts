@@ -23,6 +23,23 @@ export const useStreamingMessages = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const stopRequestedRef = useRef(false);
+  const messagesRef = useRef(messages);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  const commitMessages = useCallback(
+    (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
+      setMessages((prev) => {
+        const next = updater(prev);
+        messagesRef.current = next;
+        return next;
+      });
+    },
+    [setMessages]
+  );
+
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth', force = false) => {
     if (!force && !messagesEndRef.current && messagesContainerRef.current) {
       messagesContainerRef.current.scrollTo({
@@ -36,12 +53,16 @@ export const useStreamingMessages = ({
 
   const updateMessageById = useCallback(
     (messageId: string, updates: Partial<ChatMessage>) => {
-      setMessages((prev) => {
+      commitMessages((prev) => {
         const index = prev.findIndex((msg) => msg.id === messageId);
         if (index === -1) return prev;
         const current = prev[index];
         const nextMessage = { ...current, ...updates };
-        if (nextMessage.text === current.text && nextMessage.reasoning === current.reasoning) {
+        if (
+          nextMessage.text === current.text &&
+          nextMessage.reasoning === current.reasoning &&
+          nextMessage.isError === current.isError
+        ) {
           return prev;
         }
         const next = [...prev];
@@ -49,7 +70,7 @@ export const useStreamingMessages = ({
         return next;
       });
     },
-    [setMessages]
+    [commitMessages]
   );
 
   useEffect(() => {
@@ -60,6 +81,7 @@ export const useStreamingMessages = ({
   const handleSendMessage = useCallback(
     async (text: string) => {
       stopRequestedRef.current = false;
+      const modelMessageId = uuidv4();
 
       const userTimestamp = Date.now();
       const userMessage: ChatMessage = {
@@ -70,15 +92,13 @@ export const useStreamingMessages = ({
         timeLabel: formatMessageTime(userTimestamp),
       };
 
-      setMessages((prev) => [...prev, userMessage]);
+      commitMessages((prev) => [...prev, userMessage]);
       setIsStreaming(true);
       setIsLoading(true);
 
       try {
-        const modelMessageId = uuidv4();
-
         const modelTimestamp = Date.now();
-        setMessages((prev) => [
+        commitMessages((prev) => [
           ...prev,
           {
             id: modelMessageId,
@@ -181,13 +201,29 @@ ${rawMessage}
           timeLabel: formatMessageTime(errorTimestamp),
           isError: true,
         };
-        setMessages((prev) => [...prev, errorMessage]);
+        commitMessages((prev) => {
+          const index = prev.findIndex((msg) => msg.id === modelMessageId);
+          if (index === -1) {
+            return [...prev, errorMessage];
+          }
+          const next = [...prev];
+          next[index] = {
+            ...next[index],
+            text: finalMessageText,
+            reasoning: undefined,
+            isError: true,
+          };
+          return next;
+        });
       } finally {
         setIsStreaming(false);
         setIsLoading(false);
+        void chatService.startChatWithHistory(messagesRef.current).catch((error) => {
+          console.error('Failed to synchronize chat history:', error);
+        });
       }
     },
-    [chatService, scrollToBottom, setMessages, updateMessageById]
+    [chatService, commitMessages, scrollToBottom, updateMessageById]
   );
 
   const stopStreaming = useCallback(() => {
