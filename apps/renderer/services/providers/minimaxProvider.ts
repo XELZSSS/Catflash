@@ -1,16 +1,11 @@
 import OpenAI from 'openai';
-import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
-import { OpenAIStyleProviderBase } from './openaiBase';
-import { ProviderChat, ProviderDefinition } from './types';
+import { ProviderId, TavilyConfig } from '../../types';
+import { OpenAIChatCreateStreaming, OpenAIStreamChunk, runToolCallLoop } from './openaiChatHelpers';
 import { MINIMAX_MODEL_CATALOG } from './models';
+import { OpenAIStandardProviderBase } from './openaiStandardProviderBase';
+import { buildOpenAITavilyTools } from './tavily';
+import { ProviderChat, ProviderDefinition } from './types';
 import { sanitizeApiKey } from './utils';
-import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
-import {
-  OpenAIChatCreateStreaming,
-  OpenAIChatMessages,
-  OpenAIStreamChunk,
-  runToolCallLoop,
-} from './openaiChatHelpers';
 
 export const MINIMAX_PROVIDER_ID: ProviderId = 'minimax';
 export const DEFAULT_MINIMAX_BASE_URL = 'http://localhost:4010/proxy/minimax-intl';
@@ -51,65 +46,26 @@ const MINIMAX_MODELS = Array.from(new Set([DEFAULT_MINIMAX_MODEL, ...MINIMAX_MOD
 
 const DEFAULT_MINIMAX_API_KEY = sanitizeApiKey(process.env.MINIMAX_API_KEY);
 
-class MiniMaxProvider extends OpenAIStyleProviderBase implements ProviderChat {
-  private readonly id: ProviderId = MINIMAX_PROVIDER_ID;
-  private apiKey?: string;
-  private client: OpenAI | null = null;
-  private modelName: string;
+class MiniMaxProvider extends OpenAIStandardProviderBase implements ProviderChat {
   private baseUrl: string;
-  private tavilyConfig?: TavilyConfig;
+
   constructor() {
-    super();
-    this.apiKey = DEFAULT_MINIMAX_API_KEY;
-    this.modelName = minimaxProviderDefinition.defaultModel;
+    super({
+      id: MINIMAX_PROVIDER_ID,
+      defaultModel: DEFAULT_MINIMAX_MODEL,
+      defaultApiKey: DEFAULT_MINIMAX_API_KEY,
+      missingApiKeyError: 'Missing MINIMAX_API_KEY',
+      logLabel: 'MiniMax',
+    });
     this.baseUrl = getDefaultMinimaxBaseUrl();
-    this.tavilyConfig = getDefaultTavilyConfig();
   }
 
-  private getClient(): OpenAI {
-    const keyToUse = this.apiKey ?? DEFAULT_MINIMAX_API_KEY;
-    if (!keyToUse) {
-      throw new Error('Missing MINIMAX_API_KEY');
-    }
-    if (!this.client) {
-      this.client = new OpenAI({
-        apiKey: keyToUse,
-        baseURL: this.baseUrl,
-        dangerouslyAllowBrowser: true,
-      });
-    }
-    return this.client;
-  }
-
-  private buildTools(): OpenAI.Chat.Completions.ChatCompletionTool[] | undefined {
-    return buildOpenAITavilyTools(this.tavilyConfig);
-  }
-
-  getId(): ProviderId {
-    return this.id;
-  }
-
-  getModelName(): string {
-    return this.modelName;
-  }
-
-  setModelName(model: string): void {
-    const nextModel = model.trim() || minimaxProviderDefinition.defaultModel;
-    if (nextModel !== this.modelName) {
-      this.modelName = nextModel;
-    }
-  }
-
-  getApiKey(): string | undefined {
-    return this.apiKey;
-  }
-
-  setApiKey(apiKey?: string): void {
-    const nextKey = sanitizeApiKey(apiKey) ?? DEFAULT_MINIMAX_API_KEY;
-    if (nextKey !== this.apiKey) {
-      this.apiKey = nextKey;
-      this.client = null;
-    }
+  protected createClient(apiKey: string): OpenAI {
+    return new OpenAI({
+      apiKey,
+      baseURL: this.baseUrl,
+      dangerouslyAllowBrowser: true,
+    });
   }
 
   getBaseUrl(): string | undefined {
@@ -124,20 +80,12 @@ class MiniMaxProvider extends OpenAIStyleProviderBase implements ProviderChat {
     }
   }
 
-  getTavilyConfig(): TavilyConfig | undefined {
-    return this.tavilyConfig;
-  }
-
-  setTavilyConfig(config?: TavilyConfig): void {
-    this.tavilyConfig = normalizeTavilyConfig(config);
-  }
-
   async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {
     const client = this.getClient();
 
-    const userMessage: ChatMessage = {
-      id: `minimax-user-${Date.now()}`,
-      role: Role.User,
+    const userMessage = {
+      id: `${this.id}-user-${Date.now()}`,
+      role: 'user' as const,
       text: message,
       timestamp: Date.now(),
     };
@@ -149,15 +97,15 @@ class MiniMaxProvider extends OpenAIStyleProviderBase implements ProviderChat {
     let fullReasoning = '';
 
     try {
-      const tools = this.buildTools();
+      const tools = buildOpenAITavilyTools(this.getTavilyConfig());
+
       if (tools) {
-        const baseMessages = messages as OpenAIChatMessages;
         const { messages: workingMessages } = await runToolCallLoop({
           client,
           model: this.modelName,
-          messages: baseMessages,
+          messages,
           tools,
-          tavilyConfig: this.tavilyConfig,
+          tavilyConfig: this.getTavilyConfig() as TavilyConfig,
           extraBody: { reasoning_split: true },
           buildToolMessages: this.buildToolMessages.bind(this),
           getAssistantMessageExtras: (preflightMessage) =>
@@ -191,7 +139,7 @@ class MiniMaxProvider extends OpenAIStyleProviderBase implements ProviderChat {
       } else {
         const stream = (await client.chat.completions.create({
           model: this.modelName,
-          messages: messages as OpenAIChatMessages,
+          messages,
           stream: true,
           extra_body: { reasoning_split: true },
         } as OpenAIChatCreateStreaming)) as unknown as AsyncIterable<OpenAIStreamChunk>;
@@ -213,9 +161,9 @@ class MiniMaxProvider extends OpenAIStyleProviderBase implements ProviderChat {
         }
       }
 
-      const modelMessage: ChatMessage = {
-        id: `minimax-model-${Date.now()}`,
-        role: Role.Model,
+      const modelMessage = {
+        id: `${this.id}-model-${Date.now()}`,
+        role: 'model' as const,
         text: fullResponse,
         reasoning: fullReasoning || undefined,
         timestamp: Date.now(),

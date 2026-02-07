@@ -3,6 +3,7 @@ import type { Dispatch, FormEvent, KeyboardEvent, MouseEvent, SetStateAction } f
 import { v4 as uuidv4 } from 'uuid';
 import { ChatService } from '../services/chatService';
 import { ChatMessage, ChatSession, ProviderId, Role } from '../types';
+import { ProviderSettingsMap } from '../services/settingsTypes';
 import {
   clearActiveSessionId,
   deleteSession,
@@ -20,20 +21,7 @@ type UseChatSessionsOptions = {
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
   defaultSessionTitle: string;
   scrollToBottom: (behavior?: ScrollBehavior, force?: boolean) => void;
-  setProviderSettings: Dispatch<
-    SetStateAction<
-      Record<
-        ProviderId,
-        {
-          apiKey?: string;
-          modelName: string;
-          baseUrl?: string;
-          customHeaders?: Array<{ key: string; value: string }>;
-          tavily?: import('../types').TavilyConfig;
-        }
-      >
-    >
-  >;
+  setProviderSettings: Dispatch<SetStateAction<ProviderSettingsMap>>;
   setCurrentProviderId: Dispatch<SetStateAction<ProviderId>>;
   setCurrentModelName: Dispatch<SetStateAction<string>>;
   setCurrentApiKey: Dispatch<SetStateAction<string>>;

@@ -1,15 +1,10 @@
 import OpenAI from 'openai';
-import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
-import { OpenAIStyleProviderBase } from './openaiBase';
-import { ProviderChat, ProviderDefinition } from './types';
+import { ProviderId } from '../../types';
 import { DEEPSEEK_MODEL_CATALOG } from './models';
+import { PreflightMessage, ToolLoopOverrides } from './openaiChatHelpers';
+import { OpenAIStandardProviderBase } from './openaiStandardProviderBase';
+import { ProviderChat, ProviderDefinition } from './types';
 import { sanitizeApiKey } from './utils';
-import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
-import {
-  OpenAIChatMessages,
-  runToolCallLoop,
-  streamStandardChatCompletions,
-} from './openaiChatHelpers';
 
 export const DEEPSEEK_PROVIDER_ID: ProviderId = 'deepseek';
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com';
@@ -26,132 +21,33 @@ const DEEPSEEK_MODELS = Array.from(
 
 const DEFAULT_DEEPSEEK_API_KEY = sanitizeApiKey(process.env.DEEPSEEK_API_KEY);
 
-class DeepSeekProvider extends OpenAIStyleProviderBase implements ProviderChat {
-  private readonly id: ProviderId = DEEPSEEK_PROVIDER_ID;
-
-  private apiKey?: string;
-  private client: OpenAI | null = null;
-  private modelName: string;
-  private tavilyConfig?: TavilyConfig;
+class DeepSeekProvider extends OpenAIStandardProviderBase implements ProviderChat {
   constructor() {
-    super();
-    this.apiKey = DEFAULT_DEEPSEEK_API_KEY;
-    this.modelName = deepseekProviderDefinition.defaultModel;
-    this.tavilyConfig = getDefaultTavilyConfig();
+    super({
+      id: DEEPSEEK_PROVIDER_ID,
+      defaultModel: DEFAULT_DEEPSEEK_MODEL,
+      defaultApiKey: DEFAULT_DEEPSEEK_API_KEY,
+      missingApiKeyError: 'Missing DEEPSEEK_API_KEY',
+      logLabel: 'DeepSeek',
+    });
   }
 
-  private getClient(): OpenAI {
-    const keyToUse = this.apiKey ?? DEFAULT_DEEPSEEK_API_KEY;
-    if (!keyToUse) {
-      throw new Error('Missing DEEPSEEK_API_KEY');
-    }
-    if (!this.client) {
-      this.client = new OpenAI({
-        apiKey: keyToUse,
-        baseURL: DEEPSEEK_BASE_URL,
-        dangerouslyAllowBrowser: true,
-      });
-    }
-    return this.client;
+  protected createClient(apiKey: string): OpenAI {
+    return new OpenAI({
+      apiKey,
+      baseURL: DEEPSEEK_BASE_URL,
+      dangerouslyAllowBrowser: true,
+    });
   }
 
-  private buildTools(): OpenAI.Chat.Completions.ChatCompletionTool[] | undefined {
-    return buildOpenAITavilyTools(this.tavilyConfig);
-  }
-
-  getId(): ProviderId {
-    return this.id;
-  }
-
-  getModelName(): string {
-    return this.modelName;
-  }
-
-  setModelName(model: string): void {
-    const nextModel = model.trim() || deepseekProviderDefinition.defaultModel;
-    if (nextModel !== this.modelName) {
-      this.modelName = nextModel;
-    }
-  }
-
-  getApiKey(): string | undefined {
-    return this.apiKey;
-  }
-
-  setApiKey(apiKey?: string): void {
-    const nextKey = sanitizeApiKey(apiKey) ?? DEFAULT_DEEPSEEK_API_KEY;
-    if (nextKey !== this.apiKey) {
-      this.apiKey = nextKey;
-      this.client = null;
-    }
-  }
-
-  getTavilyConfig(): TavilyConfig | undefined {
-    return this.tavilyConfig;
-  }
-
-  setTavilyConfig(config?: TavilyConfig): void {
-    this.tavilyConfig = normalizeTavilyConfig(config);
-  }
-
-  async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {
-    const client = this.getClient();
-
-    const userMessage: ChatMessage = {
-      id: `deepseek-user-${Date.now()}`,
-      role: Role.User,
-      text: message,
-      timestamp: Date.now(),
+  protected getToolLoopOverrides(): ToolLoopOverrides {
+    return {
+      getAssistantMessageExtras: (preflightMessage: PreflightMessage) => {
+        const reasoning =
+          preflightMessage?.reasoning_content ?? preflightMessage?.reasoning ?? undefined;
+        return reasoning ? { reasoning_content: reasoning } : null;
+      },
     };
-
-    const nextHistory = [...this.history, userMessage];
-    const messages = this.buildMessages(nextHistory, this.id, this.modelName);
-
-    let fullResponse = '';
-
-    try {
-      const tools = this.buildTools();
-      const baseMessages = messages as OpenAIChatMessages;
-      const { messages: workingMessages } = await runToolCallLoop({
-        client,
-        model: this.modelName,
-        messages: baseMessages,
-        tools,
-        tavilyConfig: this.tavilyConfig,
-        buildToolMessages: this.buildToolMessages.bind(this),
-        getAssistantMessageExtras: (preflightMessage) => {
-          const reasoning =
-            preflightMessage?.reasoning_content ?? preflightMessage?.reasoning ?? undefined;
-          return reasoning ? { reasoning_content: reasoning } : null;
-        },
-      });
-
-      for await (const chunk of streamStandardChatCompletions({
-        client,
-        model: this.modelName,
-        messages: tools ? workingMessages : baseMessages,
-      })) {
-        if (chunk.reasoning) {
-          yield `<think>${chunk.reasoning}</think>`;
-        }
-        if (chunk.content) {
-          fullResponse += chunk.content;
-          yield chunk.content;
-        }
-      }
-
-      const modelMessage: ChatMessage = {
-        id: `deepseek-model-${Date.now()}`,
-        role: Role.Model,
-        text: fullResponse,
-        timestamp: Date.now(),
-      };
-
-      this.history = [...nextHistory, modelMessage];
-    } catch (error) {
-      console.error('Error in DeepSeek stream:', error);
-      throw error;
-    }
   }
 }
 

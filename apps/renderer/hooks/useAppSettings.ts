@@ -1,34 +1,15 @@
 import { Dispatch, SetStateAction, useCallback } from 'react';
 import { ChatService } from '../services/chatService';
-import { ObsidianSettings, ProviderId, TavilyConfig } from '../types';
+import { ObsidianSettings, ProviderId } from '../types';
+import { ProviderSettingsMap, SaveSettingsPayload } from '../services/settingsTypes';
 import { Language, setLanguage, t } from '../utils/i18n';
 import { saveObsidianSettings } from '../utils/obsidian';
 
-type ProviderSettingsState = Record<
-  ProviderId,
-  {
-    apiKey?: string;
-    modelName: string;
-    baseUrl?: string;
-    customHeaders?: Array<{ key: string; value: string }>;
-    tavily?: TavilyConfig;
-  }
->;
-
-type SaveSettingsPayload = {
-  providerId: ProviderId;
-  modelName: string;
-  apiKey: string;
-  baseUrl?: string;
-  customHeaders?: Array<{ key: string; value: string }>;
-  tavily?: TavilyConfig;
-};
-
 type UseAppSettingsOptions = {
   chatService: ChatService;
-  providerSettings: ProviderSettingsState;
+  providerSettings: ProviderSettingsMap;
   currentProviderId: ProviderId;
-  setProviderSettings: Dispatch<SetStateAction<ProviderSettingsState>>;
+  setProviderSettings: Dispatch<SetStateAction<ProviderSettingsMap>>;
   setCurrentProviderId: Dispatch<SetStateAction<ProviderId>>;
   setCurrentModelName: Dispatch<SetStateAction<string>>;
   setCurrentApiKey: Dispatch<SetStateAction<string>>;

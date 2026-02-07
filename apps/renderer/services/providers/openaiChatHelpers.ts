@@ -13,7 +13,7 @@ type ToolMessage = {
   content: string;
 };
 
-type PreflightMessage = OpenAI.Chat.Completions.ChatCompletionMessage & {
+export type PreflightMessage = OpenAI.Chat.Completions.ChatCompletionMessage & {
   tool_calls?: ToolCall[];
   reasoning_content?: string;
   reasoning?: string;
@@ -31,6 +31,8 @@ type RunToolLoopOptions = {
   buildToolMessages: (toolCalls: ToolCall[], tavilyConfig?: TavilyConfig) => Promise<ToolMessage[]>;
   getAssistantMessageExtras?: (message: PreflightMessage) => Record<string, unknown> | null;
 };
+
+export type ToolLoopOverrides = Pick<RunToolLoopOptions, 'extraBody' | 'getAssistantMessageExtras'>;
 
 export type OpenAIChatMessages = Array<{
   role: 'system' | 'user' | 'assistant' | 'tool';
