@@ -1,18 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Save, X } from 'lucide-react';
 import { ProviderId, TavilyConfig } from '../types';
 import { t } from '../utils/i18n';
-import {
-  MAX_TOOL_CALL_ROUNDS,
-  MIN_TOOL_CALL_ROUNDS,
-  TOOL_CALL_MAX_ROUNDS_STORAGE_KEY,
-} from '../services/providers/utils';
 import ProviderTab from './settingsModal/ProviderTab';
 import SearchTab from './settingsModal/SearchTab';
 import ObsidianTab from './settingsModal/ObsidianTab';
-import { resolveBaseUrlForRegion } from './settingsModal/constants';
-import { useObsidianTools } from './settingsModal/useObsidianTools';
-import { useSettingsForm } from './settingsModal/useSettingsForm';
+import { useSettingsController } from './settingsModal/useSettingsController';
 import {
   ProviderSettingsMap,
   SaveObsidianPayload,
@@ -49,74 +42,33 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onSave,
   onSaveObsidian,
 }) => {
-  const { state, dispatch, providerOptions, activeMeta, tabs, handleProviderChange } =
-    useSettingsForm({
-      isOpen,
-      providerId,
-      modelName,
-      apiKey,
-      baseUrl,
-      customHeaders,
-      tavily,
-      obsidianSettings,
-    });
-  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const {
+    state,
+    tabs,
+    overlayRef,
+    portalContainer,
+    providerOptions,
+    activeMeta,
     obsidianNotePathRef,
-    refreshObsidianNotes,
-    handleTestObsidianApi,
-    handleSearchObsidianNotes,
-    handleObsidianSearchKeyDown,
-  } = useObsidianTools({ state, dispatch, isOpen });
-  const overlayRef = React.useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setPortalContainer(null);
-      return;
-    }
-    setPortalContainer(overlayRef.current);
-  }, [isOpen]);
-
-  const handleSave = () => {
-    const parsedRounds = Number.parseInt(state.toolCallMaxRounds, 10);
-    const normalizedRounds = Number.isNaN(parsedRounds)
-      ? null
-      : Math.min(Math.max(parsedRounds, MIN_TOOL_CALL_ROUNDS), MAX_TOOL_CALL_ROUNDS);
-    if (typeof window !== 'undefined') {
-      try {
-        if (normalizedRounds === null) {
-          window.localStorage.removeItem(TOOL_CALL_MAX_ROUNDS_STORAGE_KEY);
-        } else {
-          window.localStorage.setItem(TOOL_CALL_MAX_ROUNDS_STORAGE_KEY, String(normalizedRounds));
-        }
-      } catch (error) {
-        console.warn('Failed to persist tool call rounds:', error);
-      }
-    }
-
-    onSave({
-      providerId: state.providerId,
-      modelName: state.modelName,
-      apiKey: state.apiKey,
-      baseUrl: state.baseUrl,
-      customHeaders: state.customHeaders,
-      tavily: state.tavily,
-    });
-
-    onSaveObsidian({
-      mode: state.obsidianMode,
-      vaultPath: state.obsidianVaultPath.trim(),
-      notePath: state.obsidianNotePath.trim(),
-      apiUrl: state.obsidianApiUrl.trim(),
-      apiKey: state.obsidianApiKey.trim(),
-      readMode: state.obsidianReadMode,
-      writeMode: state.obsidianWriteMode,
-      writeHeading: state.obsidianWriteHeading.trim(),
-      previewBeforeWrite: state.obsidianPreviewBeforeWrite,
-    });
-    onClose();
-  };
+    handleSave,
+    onTabChange,
+    providerActions,
+    searchActions,
+    obsidianActions,
+  } = useSettingsController({
+    isOpen,
+    onClose,
+    onSave,
+    onSaveObsidian,
+    providerSettings,
+    providerId,
+    modelName,
+    apiKey,
+    baseUrl,
+    customHeaders,
+    tavily,
+    obsidianSettings,
+  });
 
   if (!isOpen) return null;
 
@@ -137,11 +89,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         <div className="flex h-[72vh] flex-col gap-4 overflow-hidden p-4 sm:flex-row">
-          <Tabs
-            items={tabs}
-            activeId={state.activeTab}
-            onChange={(id) => dispatch({ type: 'patch', payload: { activeTab: id } })}
-          />
+          <Tabs items={tabs} activeId={state.activeTab} onChange={onTabChange} />
 
           <div className="flex-1 overflow-y-auto pl-2 pr-4 pt-2 sm:pl-4 sm:pr-6 sm:pt-3">
             {state.activeTab === 'provider' && (
@@ -158,51 +106,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 supportsCustomHeaders={activeMeta?.supportsCustomHeaders}
                 supportsRegion={activeMeta?.supportsRegion}
                 portalContainer={portalContainer}
-                onProviderChange={(nextProviderId) =>
-                  handleProviderChange(nextProviderId, providerSettings)
-                }
-                onModelNameChange={(value) =>
-                  dispatch({ type: 'patch', payload: { modelName: value } })
-                }
-                onApiKeyChange={(value) => dispatch({ type: 'patch', payload: { apiKey: value } })}
-                onToggleApiKeyVisibility={() =>
-                  dispatch({ type: 'patch', payload: { showApiKey: !state.showApiKey } })
-                }
-                onClearApiKey={() => dispatch({ type: 'patch', payload: { apiKey: '' } })}
-                onToolCallMaxRoundsChange={(value) =>
-                  dispatch({ type: 'patch', payload: { toolCallMaxRounds: value } })
-                }
-                onToolCallMaxRoundsBlur={() => {
-                  const parsed = Number.parseInt(state.toolCallMaxRounds, 10);
-                  if (Number.isNaN(parsed)) {
-                    dispatch({ type: 'patch', payload: { toolCallMaxRounds: '' } });
-                    return;
-                  }
-                  const clamped = Math.min(
-                    Math.max(parsed, MIN_TOOL_CALL_ROUNDS),
-                    MAX_TOOL_CALL_ROUNDS
-                  );
-                  dispatch({ type: 'patch', payload: { toolCallMaxRounds: String(clamped) } });
-                }}
-                onBaseUrlChange={(value) =>
-                  dispatch({ type: 'patch', payload: { baseUrl: value } })
-                }
-                onAddCustomHeader={() => dispatch({ type: 'add_custom_header' })}
-                onSetCustomHeaderKey={(index, value) =>
-                  dispatch({ type: 'set_custom_header_key', payload: { index, value } })
-                }
-                onSetCustomHeaderValue={(index, value) =>
-                  dispatch({ type: 'set_custom_header_value', payload: { index, value } })
-                }
-                onRemoveCustomHeader={(index) =>
-                  dispatch({ type: 'remove_custom_header', payload: { index } })
-                }
-                onSetRegionBaseUrl={(region) =>
-                  dispatch({
-                    type: 'patch',
-                    payload: { baseUrl: resolveBaseUrlForRegion(state.providerId, region) },
-                  })
-                }
+                onProviderChange={providerActions.onProviderChange}
+                onModelNameChange={providerActions.onModelNameChange}
+                onApiKeyChange={providerActions.onApiKeyChange}
+                onToggleApiKeyVisibility={providerActions.onToggleApiKeyVisibility}
+                onClearApiKey={providerActions.onClearApiKey}
+                onToolCallMaxRoundsChange={providerActions.onToolCallMaxRoundsChange}
+                onToolCallMaxRoundsBlur={providerActions.onToolCallMaxRoundsBlur}
+                onBaseUrlChange={providerActions.onBaseUrlChange}
+                onAddCustomHeader={providerActions.onAddCustomHeader}
+                onSetCustomHeaderKey={providerActions.onSetCustomHeaderKey}
+                onSetCustomHeaderValue={providerActions.onSetCustomHeaderValue}
+                onRemoveCustomHeader={providerActions.onRemoveCustomHeader}
+                onSetRegionBaseUrl={providerActions.onSetRegionBaseUrl}
               />
             )}
 
@@ -211,12 +127,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 tavily={state.tavily}
                 showTavilyKey={state.showTavilyKey}
                 portalContainer={portalContainer}
-                onSetTavilyField={(key, value) =>
-                  dispatch({ type: 'set_tavily', payload: { key, value } })
-                }
-                onToggleTavilyKeyVisibility={() =>
-                  dispatch({ type: 'patch', payload: { showTavilyKey: !state.showTavilyKey } })
-                }
+                onSetTavilyField={searchActions.onSetTavilyField}
+                onToggleTavilyKeyVisibility={searchActions.onToggleTavilyKeyVisibility}
               />
             )}
 
@@ -240,47 +152,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 searchQuery={state.obsidianSearchQuery}
                 searchResults={state.obsidianSearchResults}
                 searchLoading={state.obsidianSearchLoading}
-                onModeChange={(value) =>
-                  dispatch({ type: 'patch', payload: { obsidianMode: value } })
-                }
-                onVaultPathChange={(value) =>
-                  dispatch({ type: 'patch', payload: { obsidianVaultPath: value } })
-                }
-                onNotePathChange={(value) =>
-                  dispatch({ type: 'patch', payload: { obsidianNotePath: value } })
-                }
-                onApiUrlChange={(value) =>
-                  dispatch({ type: 'patch', payload: { obsidianApiUrl: value } })
-                }
-                onApiKeyChange={(value) =>
-                  dispatch({ type: 'patch', payload: { obsidianApiKey: value } })
-                }
-                onReadModeChange={(value) =>
-                  dispatch({ type: 'patch', payload: { obsidianReadMode: value } })
-                }
-                onWriteModeChange={(value) =>
-                  dispatch({ type: 'patch', payload: { obsidianWriteMode: value } })
-                }
-                onWriteHeadingChange={(value) =>
-                  dispatch({ type: 'patch', payload: { obsidianWriteHeading: value } })
-                }
-                onPreviewBeforeWriteChange={(value) =>
-                  dispatch({ type: 'patch', payload: { obsidianPreviewBeforeWrite: value } })
-                }
-                onSearchQueryChange={(value) =>
-                  dispatch({ type: 'patch', payload: { obsidianSearchQuery: value } })
-                }
-                onRefreshNotes={refreshObsidianNotes}
-                onTestApi={handleTestObsidianApi}
-                onSearch={handleSearchObsidianNotes}
-                onSearchKeyDown={handleObsidianSearchKeyDown}
-                onSelectSearchResult={(notePath) => {
-                  dispatch({
-                    type: 'patch',
-                    payload: { obsidianNotePath: notePath, obsidianSearchResults: [] },
-                  });
-                  requestAnimationFrame(() => obsidianNotePathRef.current?.focus());
-                }}
+                onModeChange={obsidianActions.onModeChange}
+                onVaultPathChange={obsidianActions.onVaultPathChange}
+                onNotePathChange={obsidianActions.onNotePathChange}
+                onApiUrlChange={obsidianActions.onApiUrlChange}
+                onApiKeyChange={obsidianActions.onApiKeyChange}
+                onReadModeChange={obsidianActions.onReadModeChange}
+                onWriteModeChange={obsidianActions.onWriteModeChange}
+                onWriteHeadingChange={obsidianActions.onWriteHeadingChange}
+                onPreviewBeforeWriteChange={obsidianActions.onPreviewBeforeWriteChange}
+                onSearchQueryChange={obsidianActions.onSearchQueryChange}
+                onRefreshNotes={obsidianActions.onRefreshNotes}
+                onTestApi={obsidianActions.onTestApi}
+                onSearch={obsidianActions.onSearch}
+                onSearchKeyDown={obsidianActions.onSearchKeyDown}
+                onSelectSearchResult={obsidianActions.onSelectSearchResult}
               />
             )}
           </div>
