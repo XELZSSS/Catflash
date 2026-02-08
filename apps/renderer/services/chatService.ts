@@ -2,7 +2,7 @@ import { ChatMessage, ProviderId } from '../types';
 import { ProviderRouter } from './providers/router';
 import { getProviderDefaultModel, getProviderModels, listProviderIds } from './providers/registry';
 import { getDefaultProviderSettings, ProviderSettings } from './providers/defaults';
-import { ProviderChat } from './providers/types';
+import { ImageGenerationRequest, ImageGenerationResult, ProviderChat } from './providers/types';
 import {
   applyGlobalTavilyConfig,
   loadActiveProviderId,
@@ -17,6 +17,15 @@ export class ChatService {
   private provider: ProviderChat;
   private providerSettings: Record<ProviderId, ProviderSettings>;
   private searchEnabled = true;
+  private static readonly IMAGE_PROVIDER_SET = new Set<ProviderId>([
+    'openai',
+    'openai-compatible',
+    'ollama',
+    'xai',
+    'gemini',
+    'glm',
+    'minimax',
+  ]);
 
   constructor() {
     this.providerSettings = loadProviderSettings();
@@ -38,6 +47,9 @@ export class ChatService {
     }
     if (this.provider.setTavilyConfig) {
       this.provider.setTavilyConfig(this.searchEnabled ? settings?.tavily : undefined);
+    }
+    if (this.provider.setImageGenerationConfig) {
+      this.provider.setImageGenerationConfig(settings?.imageGeneration);
     }
   }
 
@@ -143,6 +155,27 @@ export class ChatService {
    */
   async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {
     yield* this.provider.sendMessageStream(message);
+  }
+
+  supportsImageGeneration(providerId: ProviderId = this.getProviderId()): boolean {
+    if (!ChatService.IMAGE_PROVIDER_SET.has(providerId)) return false;
+    if (providerId !== this.getProviderId()) return true;
+    if (!this.provider.supportsImageGeneration) return false;
+    return this.provider.supportsImageGeneration();
+  }
+
+  async generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResult> {
+    if (!this.supportsImageGeneration()) {
+      throw new Error(`Image generation is not supported for provider: ${this.getProviderId()}`);
+    }
+    if (!this.provider.generateImage) {
+      throw new Error(`Provider does not implement image generation: ${this.getProviderId()}`);
+    }
+    const config = this.providerSettings[this.getProviderId()]?.imageGeneration;
+    return this.provider.generateImage({
+      ...config,
+      ...request,
+    });
   }
 }
 

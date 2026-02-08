@@ -1,14 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Search, StopCircle, BookOpen, PenLine } from 'lucide-react';
+import { Send, Search, StopCircle, BookOpen, PenLine, ImagePlus } from 'lucide-react';
 import { t } from '../utils/i18n';
 import { IconButton } from './ui';
 
 interface ChatInputProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, mode: 'chat' | 'image') => void;
   disabled: boolean;
   isStreaming: boolean;
   onStop: () => void;
   containerClassName?: string;
+  inputMode: 'chat' | 'image';
+  onToggleInputMode: () => void;
+  imageGenerationAvailable: boolean;
   searchEnabled: boolean;
   searchAvailable: boolean;
   onToggleSearch: () => void;
@@ -26,6 +29,9 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
   isStreaming,
   onStop,
   containerClassName,
+  inputMode,
+  onToggleInputMode,
+  imageGenerationAvailable,
   searchEnabled,
   searchAvailable,
   onToggleSearch,
@@ -123,7 +129,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
       return;
     }
 
-    onSend(input);
+    onSend(input, inputMode);
     setInput('');
     clearDraftTimer();
     try {
@@ -158,11 +164,32 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
           value={input}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
+          placeholder={
+            inputMode === 'image' ? t('input.placeholder.image') : t('input.placeholder.chat')
+          }
           className="w-full bg-transparent [background-image:none] shadow-none text-[var(--ink-1)] placeholder-[var(--ink-3)] text-sm p-3 max-h-[150px] resize-none focus:outline-none scrollbar-hide"
           rows={1}
           disabled={disabled && !isStreaming}
         />
         <div className="pb-1 pr-1 flex items-center gap-2">
+          <IconButton
+            onClick={onToggleInputMode}
+            disabled={!imageGenerationAvailable || (disabled && !isStreaming)}
+            aria-pressed={inputMode === 'image'}
+            title={inputMode === 'image' ? t('input.mode.chat') : t('input.mode.image')}
+            className={`h-9 w-9 rounded-full transition-all duration-200 flex items-center justify-center ring-1 ${
+              inputMode === 'image'
+                ? 'bg-white/10 text-[var(--ink-1)] ring-[var(--line-1)]'
+                : 'bg-[var(--bg-2)] text-[var(--ink-3)] ring-[var(--line-1)]'
+            } ${
+              imageGenerationAvailable && !(disabled && !isStreaming)
+                ? 'hover:bg-white/5 hover:text-[var(--ink-1)]'
+                : 'opacity-50 cursor-not-allowed'
+            }`}
+            active={inputMode === 'image'}
+          >
+            <ImagePlus size={18} />
+          </IconButton>
           {onReadObsidian && (
             <IconButton
               onClick={onReadObsidian}
@@ -185,7 +212,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
           )}
           <IconButton
             onClick={onToggleSearch}
-            disabled={!searchAvailable || (disabled && !isStreaming)}
+            disabled={!searchAvailable || inputMode === 'image' || (disabled && !isStreaming)}
             aria-pressed={searchEnabled}
             title={searchEnabled ? t('input.search.disable') : t('input.search.enable')}
             className={`h-9 w-9 rounded-full transition-all duration-200 flex items-center justify-center ring-1 ${
@@ -193,7 +220,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 ? 'bg-white/10 text-[var(--ink-1)] ring-[var(--line-1)]'
                 : 'bg-[var(--bg-2)] text-[var(--ink-3)] ring-[var(--line-1)]'
             } ${
-              searchAvailable && !(disabled && !isStreaming)
+              searchAvailable && inputMode !== 'image' && !(disabled && !isStreaming)
                 ? 'hover:bg-white/5 hover:text-[var(--ink-1)]'
                 : 'opacity-50 cursor-not-allowed'
             }`}

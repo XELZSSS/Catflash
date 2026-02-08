@@ -1,5 +1,28 @@
 import { ChatMessage, ProviderId } from '../../types';
 
+export interface ImageGenerationRequest {
+  prompt: string;
+  size?: string;
+  aspectRatio?: string;
+  count?: number;
+  quality?: string;
+  subjectReference?: string;
+}
+
+export interface ImageGenerationResult {
+  imageUrl?: string;
+  imageDataUrl?: string;
+  revisedPrompt?: string;
+}
+
+export interface ImageGenerationConfig {
+  size?: string;
+  aspectRatio?: string;
+  count?: number;
+  quality?: string;
+  subjectReference?: string;
+}
+
 export interface ProviderChat {
   getId(): ProviderId;
   getModelName(): string;
@@ -12,6 +35,10 @@ export interface ProviderChat {
   setCustomHeaders?(headers: Array<{ key: string; value: string }>): void;
   getTavilyConfig?(): import('../../types').TavilyConfig | undefined;
   setTavilyConfig?(config: import('../../types').TavilyConfig | undefined): void;
+  getImageGenerationConfig?(): ImageGenerationConfig | undefined;
+  setImageGenerationConfig?(config: ImageGenerationConfig | undefined): void;
+  supportsImageGeneration?(): boolean;
+  generateImage?(request: ImageGenerationRequest): Promise<ImageGenerationResult>;
   resetChat(): void;
   startChatWithHistory(messages: ChatMessage[]): Promise<void>;
   sendMessageStream(message: string): AsyncGenerator<string, void, unknown>;

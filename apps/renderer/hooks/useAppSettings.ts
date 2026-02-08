@@ -49,6 +49,7 @@ export const useAppSettings = ({
         baseUrl: value.baseUrl,
         customHeaders: value.customHeaders,
         tavily: value.tavily,
+        imageGeneration: value.imageGeneration,
       });
       setProviderSettings(chatService.getAllProviderSettings());
       setCurrentProviderId(value.providerId);
@@ -63,7 +64,9 @@ export const useAppSettings = ({
         (prev.baseUrl ?? '') !== (updatedSettings.baseUrl ?? '') ||
         JSON.stringify(prev.customHeaders ?? []) !==
           JSON.stringify(updatedSettings.customHeaders ?? []) ||
-        JSON.stringify(prev.tavily ?? {}) !== JSON.stringify(updatedSettings.tavily ?? {});
+        JSON.stringify(prev.tavily ?? {}) !== JSON.stringify(updatedSettings.tavily ?? {}) ||
+        JSON.stringify(prev.imageGeneration ?? {}) !==
+          JSON.stringify(updatedSettings.imageGeneration ?? {});
       if (shouldRestart) {
         startNewChat();
       }

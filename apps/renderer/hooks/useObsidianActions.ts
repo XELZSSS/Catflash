@@ -10,7 +10,7 @@ type UseObsidianActionsOptions = {
   obsidianSettings: import('../types').ObsidianSettings;
   messages: ChatMessage[];
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
-  handleSendMessage: (text: string) => Promise<void>;
+  handleSendMessage: (text: string, mode: 'chat' | 'image') => Promise<void>;
 };
 
 export const useObsidianActions = ({
@@ -133,7 +133,7 @@ export const useObsidianActions = ({
             ? (await getActiveNote()).content
             : await (await fetchObsidianApi(`/vault/${encodeURIComponent(notePath)}`)).text();
         const prompt = `${t('obsidian.prompt.prefix')}: ${notePath}\n\n${content}`;
-        await handleSendMessage(prompt);
+        await handleSendMessage(prompt, 'chat');
         return;
       }
 
@@ -152,7 +152,7 @@ export const useObsidianActions = ({
       }
       const content = await window.gero.obsidian.readNote(obsidianSettings.vaultPath, notePath);
       const prompt = `${t('obsidian.prompt.prefix')}: ${notePath}\n\n${content}`;
-      await handleSendMessage(prompt);
+      await handleSendMessage(prompt, 'chat');
     } catch (error) {
       console.error('Failed to read Obsidian note:', error);
       pushObsidianMessage(t('obsidian.error.readFailed'), true);

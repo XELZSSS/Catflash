@@ -15,6 +15,7 @@ export const useAppController = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [inputMode, setInputMode] = useState<'chat' | 'image'>('chat');
   const [providerSettings, setProviderSettings] = useState(() =>
     chatService.getAllProviderSettings()
   );
@@ -54,6 +55,7 @@ export const useAppController = () => {
   }, [language]);
 
   const tavilyAvailable = Boolean(providerSettings[currentProviderId]?.tavily?.apiKey);
+  const imageGenerationAvailable = chatService.supportsImageGeneration(currentProviderId);
   const { searchEnabled, setSearchEnabled } = useSearchToggle({
     chatService,
     tavilyAvailable,
@@ -67,6 +69,12 @@ export const useAppController = () => {
       setMessages,
       handleSendMessage: streaming.handleSendMessage,
     });
+
+  useEffect(() => {
+    if (inputMode === 'image' && !imageGenerationAvailable) {
+      setInputMode('chat');
+    }
+  }, [imageGenerationAvailable, inputMode]);
 
   const handleNewChatClick = useCallback(() => {
     if (streaming.isStreaming || streaming.isLoading) return;
@@ -126,6 +134,7 @@ export const useAppController = () => {
       baseUrl: providerSettings[currentProviderId]?.baseUrl,
       customHeaders: providerSettings[currentProviderId]?.customHeaders,
       tavily: providerSettings[currentProviderId]?.tavily,
+      imageGeneration: providerSettings[currentProviderId]?.imageGeneration,
       obsidianSettings,
       onSave: handleSaveSettings,
       onSaveObsidian: handleSaveObsidian,
@@ -189,6 +198,11 @@ export const useAppController = () => {
       onSendMessage: streaming.handleSendMessage,
       onOpenSidebar: () => setIsSidebarOpen(true),
       onStopStreaming: streaming.stopStreaming,
+      inputMode,
+      onToggleInputMode: () => {
+        setInputMode((prev) => (prev === 'chat' ? 'image' : 'chat'));
+      },
+      imageGenerationAvailable,
       searchEnabled,
       searchAvailable: tavilyAvailable,
       onToggleSearch: handleToggleSearch,
@@ -206,6 +220,8 @@ export const useAppController = () => {
       messages,
       obsidianAvailable,
       searchEnabled,
+      inputMode,
+      imageGenerationAvailable,
       streaming.handleSendMessage,
       streaming.isLoading,
       streaming.isStreaming,

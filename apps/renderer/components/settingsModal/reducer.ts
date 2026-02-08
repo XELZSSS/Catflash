@@ -1,6 +1,7 @@
 import { ProviderId, TavilyConfig } from '../../types';
+import { ImageGenerationConfig } from '../../services/providers/types';
 
-export type ActiveSettingsTab = 'provider' | 'search' | 'obsidian';
+export type ActiveSettingsTab = 'provider' | 'search' | 'obsidian' | 'image';
 
 export type SettingsModalState = {
   providerId: ProviderId;
@@ -9,6 +10,7 @@ export type SettingsModalState = {
   baseUrl?: string;
   customHeaders: Array<{ key: string; value: string }>;
   tavily: TavilyConfig;
+  imageGeneration: ImageGenerationConfig;
   showApiKey: boolean;
   showTavilyKey: boolean;
   obsidianMode: import('../../types').ObsidianMode;

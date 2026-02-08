@@ -36,6 +36,30 @@ const normalizeCustomHeaders = (
   return sanitized.length > 0 ? sanitized : [];
 };
 
+const normalizeImageGenerationConfig = (
+  value?: Partial<ProviderSettings['imageGeneration']>
+): ProviderSettings['imageGeneration'] => {
+  if (!value) return undefined;
+  const normalizeText = (v?: string): string | undefined => {
+    const trimmed = v?.trim();
+    return trimmed ? trimmed : undefined;
+  };
+  const normalizeCount = (v?: number): number | undefined => {
+    if (v === undefined || v === null) return undefined;
+    const parsed = Number(v);
+    if (!Number.isFinite(parsed)) return undefined;
+    return Math.min(Math.max(Math.floor(parsed), 1), 4);
+  };
+  const next = {
+    size: normalizeText(value.size),
+    aspectRatio: normalizeText(value.aspectRatio),
+    count: normalizeCount(value.count),
+    quality: normalizeText(value.quality),
+    subjectReference: normalizeText(value.subjectReference),
+  };
+  return Object.values(next).some((item) => item !== undefined) ? next : undefined;
+};
+
 const resolveGlobalTavilyConfig = (
   settings: Record<ProviderId, ProviderSettings>
 ): ProviderSettings['tavily'] => {
@@ -107,6 +131,9 @@ export const loadProviderSettings = (): Record<ProviderId, ProviderSettings> => 
         customHeaders:
           normalizeCustomHeaders(storedSettings.customHeaders) ?? defaults[id].customHeaders,
         tavily: normalizeTavilyConfig(storedSettings.tavily) ?? defaults[id].tavily,
+        imageGeneration:
+          normalizeImageGenerationConfig(storedSettings.imageGeneration) ??
+          defaults[id].imageGeneration,
       };
     }
     const globalTavily = resolveGlobalTavilyConfig(defaults);
@@ -145,5 +172,9 @@ export const normalizeProviderSettingsUpdate = (
         ? normalizeCustomHeaders(updates.customHeaders)
         : current.customHeaders,
     tavily: updates.tavily !== undefined ? normalizeTavilyConfig(updates.tavily) : current.tavily,
+    imageGeneration:
+      updates.imageGeneration !== undefined
+        ? normalizeImageGenerationConfig(updates.imageGeneration)
+        : current.imageGeneration,
   };
 };

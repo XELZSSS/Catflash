@@ -85,6 +85,7 @@ export const useSettingsController = ({
       baseUrl: state.baseUrl,
       customHeaders: state.customHeaders,
       tavily: state.tavily,
+      imageGeneration: state.imageGeneration,
     });
 
     onSaveObsidian({
@@ -131,6 +132,45 @@ export const useSettingsController = ({
           type: 'patch',
           payload: { baseUrl: resolveBaseUrlForRegion(state.providerId, region) },
         }),
+      onSetImageSize: (value: string) =>
+        dispatch({
+          type: 'patch',
+          payload: {
+            imageGeneration: { ...state.imageGeneration, size: value.trim() || undefined },
+          },
+        }),
+      onSetImageAspectRatio: (value: string) =>
+        dispatch({
+          type: 'patch',
+          payload: {
+            imageGeneration: { ...state.imageGeneration, aspectRatio: value.trim() || undefined },
+          },
+        }),
+      onSetImageCount: (value: string) => {
+        const parsed = Number.parseInt(value.replace(/[^\d]/g, ''), 10);
+        const count = Number.isNaN(parsed) ? undefined : Math.min(Math.max(parsed, 1), 4);
+        dispatch({
+          type: 'patch',
+          payload: { imageGeneration: { ...state.imageGeneration, count } },
+        });
+      },
+      onSetImageQuality: (value: string) =>
+        dispatch({
+          type: 'patch',
+          payload: {
+            imageGeneration: { ...state.imageGeneration, quality: value.trim() || undefined },
+          },
+        }),
+      onSetImageSubjectReference: (value: string) =>
+        dispatch({
+          type: 'patch',
+          payload: {
+            imageGeneration: {
+              ...state.imageGeneration,
+              subjectReference: value.trim() || undefined,
+            },
+          },
+        }),
     }),
     [
       dispatch,
@@ -139,6 +179,7 @@ export const useSettingsController = ({
       state.providerId,
       state.showApiKey,
       state.toolCallMaxRounds,
+      state.imageGeneration,
     ]
   );
 

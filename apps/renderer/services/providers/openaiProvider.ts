@@ -1,7 +1,13 @@
 import OpenAI from 'openai';
 import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
 import { OpenAIStyleProviderBase } from './openaiBase';
-import { ProviderChat, ProviderDefinition } from './types';
+import {
+  ImageGenerationConfig,
+  ImageGenerationRequest,
+  ImageGenerationResult,
+  ProviderChat,
+  ProviderDefinition,
+} from './types';
 import { buildSystemInstruction } from './prompts';
 import { OPENAI_MODEL_CATALOG } from './models';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
@@ -32,6 +38,12 @@ const supportsReasoningSummary = (modelName: string): boolean => {
   return lower.startsWith('gpt-5') || lower.startsWith('o');
 };
 
+const resolveOpenAIImageModel = (modelName: string): string => {
+  const lower = modelName.toLowerCase();
+  if (lower.includes('image')) return modelName;
+  return 'gpt-image-1';
+};
+
 class OpenAIProvider extends OpenAIStyleProviderBase implements ProviderChat {
   private readonly id: ProviderId = OPENAI_PROVIDER_ID;
   private apiKey?: string;
@@ -39,6 +51,7 @@ class OpenAIProvider extends OpenAIStyleProviderBase implements ProviderChat {
   private client: OpenAI | null = null;
   private modelName: string;
   private tavilyConfig?: TavilyConfig;
+  private imageGenerationConfig?: ImageGenerationConfig;
   constructor() {
     super();
     this.apiKey = DEFAULT_OPENAI_API_KEY;
@@ -140,6 +153,44 @@ class OpenAIProvider extends OpenAIStyleProviderBase implements ProviderChat {
 
   setTavilyConfig(config?: TavilyConfig): void {
     this.tavilyConfig = normalizeTavilyConfig(config);
+  }
+
+  getImageGenerationConfig(): ImageGenerationConfig | undefined {
+    return this.imageGenerationConfig;
+  }
+
+  setImageGenerationConfig(config?: ImageGenerationConfig): void {
+    this.imageGenerationConfig = config;
+  }
+
+  supportsImageGeneration(): boolean {
+    return true;
+  }
+
+  async generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResult> {
+    const client = this.getClient();
+    const payload: Record<string, unknown> = {
+      model: resolveOpenAIImageModel(this.modelName),
+      prompt: request.prompt,
+      n: request.count ?? 1,
+      size: request.size ?? '1024x1024',
+    };
+    if (request.quality) {
+      payload.quality = request.quality;
+    }
+    const response = (await client.images.generate(payload as never)) as unknown as {
+      data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
+    };
+
+    const first = response.data?.[0];
+    if (!first) {
+      throw new Error('OpenAI image generation returned no image.');
+    }
+    return {
+      imageUrl: first.url,
+      imageDataUrl: first.b64_json ? `data:image/png;base64,${first.b64_json}` : undefined,
+      revisedPrompt: first.revised_prompt,
+    };
   }
 
   async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {

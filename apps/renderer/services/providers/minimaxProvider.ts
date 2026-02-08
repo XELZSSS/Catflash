@@ -4,7 +4,13 @@ import { OpenAIChatCreateStreaming, OpenAIStreamChunk, runToolCallLoop } from '.
 import { MINIMAX_MODEL_CATALOG } from './models';
 import { OpenAIStandardProviderBase } from './openaiStandardProviderBase';
 import { buildOpenAITavilyTools } from './tavily';
-import { ProviderChat, ProviderDefinition } from './types';
+import {
+  ImageGenerationConfig,
+  ImageGenerationRequest,
+  ImageGenerationResult,
+  ProviderChat,
+  ProviderDefinition,
+} from './types';
 import { sanitizeApiKey } from './utils';
 
 export const MINIMAX_PROVIDER_ID: ProviderId = 'minimax';
@@ -46,8 +52,15 @@ const MINIMAX_MODELS = Array.from(new Set([DEFAULT_MINIMAX_MODEL, ...MINIMAX_MOD
 
 const DEFAULT_MINIMAX_API_KEY = sanitizeApiKey(process.env.MINIMAX_API_KEY);
 
+const resolveMinimaxImageModel = (modelName: string): string => {
+  const lower = modelName.toLowerCase();
+  if (lower.includes('image')) return modelName;
+  return 'image-01';
+};
+
 class MiniMaxProvider extends OpenAIStandardProviderBase implements ProviderChat {
   private baseUrl: string;
+  private imageGenerationConfig?: ImageGenerationConfig;
 
   constructor() {
     super({
@@ -78,6 +91,62 @@ class MiniMaxProvider extends OpenAIStandardProviderBase implements ProviderChat
       this.baseUrl = resolveBaseUrl(nextUrl);
       this.client = null;
     }
+  }
+
+  getImageGenerationConfig(): ImageGenerationConfig | undefined {
+    return this.imageGenerationConfig;
+  }
+
+  setImageGenerationConfig(config?: ImageGenerationConfig): void {
+    this.imageGenerationConfig = config;
+  }
+
+  supportsImageGeneration(): boolean {
+    return true;
+  }
+
+  async generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResult> {
+    const apiKey = this.getApiKey() ?? DEFAULT_MINIMAX_API_KEY;
+    if (!apiKey) {
+      throw new Error('Missing MINIMAX_API_KEY');
+    }
+    const response = await fetch(`${this.baseUrl.replace(/\/+$/, '')}/image_generation`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: resolveMinimaxImageModel(this.modelName),
+        prompt: request.prompt,
+        aspect_ratio: request.aspectRatio ?? '1:1',
+        response_format: 'url',
+        n: request.count ?? 1,
+        quality: request.quality,
+        subject_reference: request.subjectReference,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`MiniMax image request failed: ${response.status}`);
+    }
+
+    const payload = (await response.json()) as {
+      data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
+      image_urls?: string[];
+    };
+    const first = payload.data?.[0];
+    const firstUrl = first?.url ?? payload.image_urls?.[0];
+    const firstDataUrl = first?.b64_json ? `data:image/png;base64,${first.b64_json}` : undefined;
+    if (!firstUrl && !firstDataUrl) {
+      throw new Error('MiniMax image generation returned no image.');
+    }
+
+    return {
+      imageUrl: firstUrl,
+      imageDataUrl: firstDataUrl,
+      revisedPrompt: first?.revised_prompt,
+    };
   }
 
   async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {

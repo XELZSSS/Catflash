@@ -5,12 +5,14 @@ import { t } from '../utils/i18n';
 import ProviderTab from './settingsModal/ProviderTab';
 import SearchTab from './settingsModal/SearchTab';
 import ObsidianTab from './settingsModal/ObsidianTab';
+import ImageTab from './settingsModal/ImageTab';
 import { useSettingsController } from './settingsModal/useSettingsController';
 import {
   ProviderSettingsMap,
   SaveObsidianPayload,
   SaveSettingsPayload,
 } from './settingsModal/types';
+import { ImageGenerationConfig } from '../services/providers/types';
 import { Button, Modal, Tabs } from './ui';
 
 interface SettingsModalProps {
@@ -23,6 +25,7 @@ interface SettingsModalProps {
   baseUrl?: string;
   customHeaders?: Array<{ key: string; value: string }>;
   tavily?: TavilyConfig;
+  imageGeneration?: ImageGenerationConfig;
   obsidianSettings: import('../types').ObsidianSettings;
   onSave: (value: SaveSettingsPayload) => void;
   onSaveObsidian: (value: SaveObsidianPayload) => void;
@@ -38,6 +41,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   baseUrl,
   customHeaders,
   tavily,
+  imageGeneration,
   obsidianSettings,
   onSave,
   onSaveObsidian,
@@ -67,6 +71,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     baseUrl,
     customHeaders,
     tavily,
+    imageGeneration,
     obsidianSettings,
   });
 
@@ -167,6 +172,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 onSearch={obsidianActions.onSearch}
                 onSearchKeyDown={obsidianActions.onSearchKeyDown}
                 onSelectSearchResult={obsidianActions.onSelectSearchResult}
+              />
+            )}
+
+            {state.activeTab === 'image' && activeMeta?.supportsImageGeneration && (
+              <ImageTab
+                providerId={state.providerId}
+                imageGeneration={state.imageGeneration}
+                portalContainer={portalContainer}
+                onSetImageSize={providerActions.onSetImageSize}
+                onSetImageAspectRatio={providerActions.onSetImageAspectRatio}
+                onSetImageCount={providerActions.onSetImageCount}
+                onSetImageQuality={providerActions.onSetImageQuality}
+                onSetImageSubjectReference={providerActions.onSetImageSubjectReference}
               />
             )}
           </div>

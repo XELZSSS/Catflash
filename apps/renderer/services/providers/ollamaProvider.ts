@@ -1,7 +1,12 @@
 import { ProviderId } from '../../types';
 import { OLLAMA_MODEL_CATALOG } from './models';
 import { OpenAIProxyCompatibleProviderBase } from './openaiProxyCompatibleProviderBase';
-import { ProviderChat, ProviderDefinition } from './types';
+import {
+  ImageGenerationRequest,
+  ImageGenerationResult,
+  ProviderChat,
+  ProviderDefinition,
+} from './types';
 import { sanitizeApiKey } from './utils';
 
 export const OLLAMA_PROVIDER_ID: ProviderId = 'ollama';
@@ -51,8 +56,39 @@ class OllamaProvider extends OpenAIProxyCompatibleProviderBase implements Provid
       missingBaseUrlError: 'Missing Ollama base URL',
       logLabel: 'Ollama',
       supportsTavily: false,
+      supportsImageGeneration: true,
     });
     this.customHeaders = [];
+  }
+
+  protected resolveImageModel(): string {
+    const lower = this.modelName.toLowerCase();
+    if (lower.includes('image') || this.modelName.includes('/')) {
+      return this.modelName;
+    }
+    return 'x/z-image-turbo';
+  }
+
+  async generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResult> {
+    const client = this.getClient();
+    const response = (await client.images.generate({
+      model: this.resolveImageModel(),
+      prompt: request.prompt,
+      n: request.count ?? 1,
+      size: request.size ?? '1024x1024',
+      response_format: 'b64_json',
+    } as never)) as unknown as {
+      data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
+    };
+    const first = response.data?.[0];
+    if (!first) {
+      throw new Error('Ollama image generation returned no image.');
+    }
+    return {
+      imageUrl: first.url,
+      imageDataUrl: first.b64_json ? `data:image/png;base64,${first.b64_json}` : undefined,
+      revisedPrompt: first.revised_prompt,
+    };
   }
 
   protected resolveTargetBaseUrl(baseUrl?: string): string | undefined {

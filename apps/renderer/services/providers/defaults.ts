@@ -1,4 +1,5 @@
 import { ProviderId, TavilyConfig } from '../../types';
+import { ImageGenerationConfig } from './types';
 import { getProviderDefaultModel, listProviderIds } from './registry';
 import { getDefaultGlmBaseUrl } from './glmProvider';
 import { getDefaultMinimaxBaseUrl } from './minimaxProvider';
@@ -15,6 +16,7 @@ export interface ProviderSettings {
   baseUrl?: string;
   customHeaders?: Array<{ key: string; value: string }>;
   tavily?: TavilyConfig;
+  imageGeneration?: ImageGenerationConfig;
 }
 
 const TAVILY_ENABLED_PROVIDERS = new Set<ProviderId>([
@@ -28,6 +30,41 @@ const TAVILY_ENABLED_PROVIDERS = new Set<ProviderId>([
   'moonshot',
   'iflow',
 ]);
+
+const IMAGE_ENABLED_PROVIDERS = new Set<ProviderId>([
+  'openai',
+  'openai-compatible',
+  'ollama',
+  'xai',
+  'gemini',
+  'glm',
+  'minimax',
+]);
+
+const getDefaultImageGenerationConfig = (
+  providerId: ProviderId
+): ImageGenerationConfig | undefined => {
+  if (!IMAGE_ENABLED_PROVIDERS.has(providerId)) return undefined;
+  if (providerId === 'minimax') {
+    return {
+      aspectRatio: '1:1',
+      count: 1,
+      quality: 'standard',
+    };
+  }
+  if (providerId === 'ollama') {
+    return {
+      size: '1024x1024',
+      count: 1,
+      quality: 'auto',
+    };
+  }
+  return {
+    size: '1024x1024',
+    count: 1,
+    quality: 'auto',
+  };
+};
 
 const resolveDefaultBaseUrl = (providerId: ProviderId): string | undefined => {
   if (providerId === 'minimax') return getDefaultMinimaxBaseUrl();
@@ -76,6 +113,7 @@ export const getDefaultProviderSettings = (providerId: ProviderId): ProviderSett
   baseUrl: resolveDefaultBaseUrl(providerId),
   customHeaders: [],
   tavily: TAVILY_ENABLED_PROVIDERS.has(providerId) ? getDefaultTavilyConfig() : undefined,
+  imageGeneration: getDefaultImageGenerationConfig(providerId),
 });
 
 export const buildDefaultProviderSettings = (): Record<ProviderId, ProviderSettings> => {

@@ -10,6 +10,7 @@ export type SaveSettingsPayload = {
   baseUrl?: string;
   customHeaders?: ProviderSettings['customHeaders'];
   tavily?: ProviderSettings['tavily'];
+  imageGeneration?: ProviderSettings['imageGeneration'];
 };
 
 export type SaveObsidianPayload = ObsidianSettings;

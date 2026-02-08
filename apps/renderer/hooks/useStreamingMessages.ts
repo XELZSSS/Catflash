@@ -18,6 +18,7 @@ export const useStreamingMessages = ({
   messages,
   setMessages,
 }: UseStreamingMessagesOptions) => {
+  type InputMode = 'chat' | 'image';
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -226,6 +227,76 @@ ${rawMessage}
     [chatService, commitMessages, scrollToBottom, updateMessageById]
   );
 
+  const handleGenerateImage = useCallback(
+    async (prompt: string) => {
+      stopRequestedRef.current = false;
+      const modelMessageId = uuidv4();
+
+      const userTimestamp = Date.now();
+      const userMessage: ChatMessage = {
+        id: uuidv4(),
+        role: Role.User,
+        text: prompt,
+        timestamp: userTimestamp,
+        timeLabel: formatMessageTime(userTimestamp),
+      };
+
+      commitMessages((prev) => [...prev, userMessage]);
+      setIsLoading(true);
+
+      try {
+        const modelTimestamp = Date.now();
+        commitMessages((prev) => [
+          ...prev,
+          {
+            id: modelMessageId,
+            role: Role.Model,
+            text: '',
+            timestamp: modelTimestamp,
+            timeLabel: formatMessageTime(modelTimestamp),
+          },
+        ]);
+        requestAnimationFrame(() => scrollToBottom('auto', true));
+
+        const result = await chatService.generateImage({ prompt });
+
+        updateMessageById(modelMessageId, {
+          text: result.revisedPrompt ?? '',
+          imageUrl: result.imageUrl,
+          imageDataUrl: result.imageDataUrl,
+          imageAlt: prompt,
+          isError: false,
+        });
+      } catch (error: unknown) {
+        console.error('Image generation error:', error);
+        const rawMessage = error instanceof Error ? error.message : String(error);
+        const finalMessageText = `**${t('error.generic')}**\n\n${rawMessage}`;
+        updateMessageById(modelMessageId, {
+          text: finalMessageText,
+          reasoning: undefined,
+          isError: true,
+        });
+      } finally {
+        setIsLoading(false);
+        void chatService.startChatWithHistory(messagesRef.current).catch((error) => {
+          console.error('Failed to synchronize chat history:', error);
+        });
+      }
+    },
+    [chatService, commitMessages, scrollToBottom, updateMessageById]
+  );
+
+  const handleSendInput = useCallback(
+    async (text: string, mode: InputMode) => {
+      if (mode === 'image') {
+        await handleGenerateImage(text);
+        return;
+      }
+      await handleSendMessage(text);
+    },
+    [handleGenerateImage, handleSendMessage]
+  );
+
   const stopStreaming = useCallback(() => {
     stopRequestedRef.current = true;
     setIsStreaming(false);
@@ -238,7 +309,7 @@ ${rawMessage}
     isStreaming,
     isLoading,
     scrollToBottom,
-    handleSendMessage,
+    handleSendMessage: handleSendInput,
     stopStreaming,
   };
 };

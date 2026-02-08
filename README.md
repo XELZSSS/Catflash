@@ -8,6 +8,7 @@ Catflash 是一款 Windows 桌面聊天应用，支持多家模型供应商、�
 ## 🚀 核心功能
 
 - 多模型供应商切换与模型配置
+- 文本对话 / 图片生成双模式
 - 可选搜索增强（搜索引擎）
 - 会话自动保存、搜索与排序
 - Obsidian 协同写作（读取/写回笔记）
@@ -59,6 +60,8 @@ npm run dev
 1. 打开设置，选择供应商并填写 API Key
 2. 可按需开启“搜索引擎”并配置 Tavily Key
 3. 新建对话后即可开始聊天
+4. 输入框可切换“聊天模式 / 生图模式”
+5. 在设置的“图片生成”标签可调整尺寸、宽高比、数量、质量、参考图 URL（按供应商显示）
 
 ## ⚙️ 配置说明
 
@@ -66,6 +69,17 @@ npm run dev
 - 模型：可填写供应商支持的模型名
 - Base URL / 自定义 Header：仅 OpenAI-Compatible 需要
 - 搜索引擎：可选，用于搜索增强
+
+### 🖼️ 图片生成功能
+
+- 已支持图片生成的供应商：OpenAI、Gemini、OpenAI-Compatible（取决于上游实现）、Ollama、xAI、GLM、MiniMax
+- 在设置中的“图片生成”标签可配置：
+  - Size（尺寸）
+  - Aspect Ratio（宽高比）
+  - Count（生成数量）
+  - Quality（质量）
+  - Subject Reference（参考图 URL，部分供应商生效）
+- 生成完成后，消息气泡支持“下载图片 / 复制链接”
 
 ### 🦙 Ollama 专用说明
 

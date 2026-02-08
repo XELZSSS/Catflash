@@ -1,5 +1,11 @@
 import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
-import { ProviderChat, ProviderDefinition } from './types';
+import {
+  ImageGenerationConfig,
+  ImageGenerationRequest,
+  ImageGenerationResult,
+  ProviderChat,
+  ProviderDefinition,
+} from './types';
 import { buildSystemInstruction } from './prompts';
 import { GLM_MODEL_CATALOG } from './models';
 import { getMaxToolCallRounds, sanitizeApiKey } from './utils';
@@ -73,12 +79,26 @@ const parseSseLines = (buffer: string): { lines: string[]; rest: string } => {
   return { lines: parts, rest };
 };
 
+const resolveGlmImageEndpoint = (baseUrl: string): string => {
+  if (baseUrl.includes('/chat/completions')) {
+    return baseUrl.replace('/chat/completions', '/images/generations');
+  }
+  return `${baseUrl.replace(/\/+$/, '')}/images/generations`;
+};
+
+const resolveGlmImageModel = (modelName: string): string => {
+  const lower = modelName.toLowerCase();
+  if (lower.includes('image') || lower.includes('cogview')) return modelName;
+  return 'glm-image';
+};
+
 class GlmProvider implements ProviderChat {
   private readonly id: ProviderId = GLM_PROVIDER_ID;
   private apiKey?: string;
   private modelName: string;
   private baseUrl: string;
   private tavilyConfig?: TavilyConfig;
+  private imageGenerationConfig?: ImageGenerationConfig;
   private history: ChatMessage[] = [];
 
   constructor() {
@@ -130,6 +150,14 @@ class GlmProvider implements ProviderChat {
     this.tavilyConfig = normalizeTavilyConfig(config);
   }
 
+  getImageGenerationConfig(): ImageGenerationConfig | undefined {
+    return this.imageGenerationConfig;
+  }
+
+  setImageGenerationConfig(config?: ImageGenerationConfig): void {
+    this.imageGenerationConfig = config;
+  }
+
   getBaseUrl(): string | undefined {
     return this.baseUrl;
   }
@@ -139,6 +167,45 @@ class GlmProvider implements ProviderChat {
     if (nextUrl && nextUrl !== this.baseUrl) {
       this.baseUrl = resolveBaseUrl(nextUrl);
     }
+  }
+
+  supportsImageGeneration(): boolean {
+    return true;
+  }
+
+  async generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResult> {
+    const response = await fetch(resolveGlmImageEndpoint(this.baseUrl), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.getApiKeyValue()}`,
+      },
+      body: JSON.stringify({
+        model: resolveGlmImageModel(this.modelName),
+        prompt: request.prompt,
+        size: request.size ?? '1024x1024',
+        quality: request.quality,
+        n: request.count,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`GLM image request failed: ${response.status}`);
+    }
+
+    const payload = (await response.json()) as {
+      data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
+    };
+    const first = payload.data?.[0];
+    if (!first) {
+      throw new Error('GLM image generation returned no image.');
+    }
+
+    return {
+      imageUrl: first.url,
+      imageDataUrl: first.b64_json ? `data:image/png;base64,${first.b64_json}` : undefined,
+      revisedPrompt: first.revised_prompt,
+    };
   }
 
   resetChat(): void {

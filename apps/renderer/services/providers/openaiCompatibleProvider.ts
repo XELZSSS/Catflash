@@ -54,6 +54,7 @@ class OpenAICompatibleProvider extends OpenAIProxyCompatibleProviderBase impleme
       missingBaseUrlError: 'Missing OpenAI-Compatible base URL',
       logLabel: 'OpenAI-Compatible',
       supportsTavily: true,
+      supportsImageGeneration: true,
     });
   }
 

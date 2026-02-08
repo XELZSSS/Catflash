@@ -13,9 +13,12 @@ type ChatMainProps = {
   isLoading: boolean;
   messagesContainerRef: React.RefObject<HTMLDivElement>;
   messagesEndRef: React.RefObject<HTMLDivElement>;
-  onSendMessage: (text: string) => void;
+  onSendMessage: (text: string, mode: 'chat' | 'image') => void;
   onOpenSidebar: () => void;
   onStopStreaming: () => void;
+  inputMode: 'chat' | 'image';
+  onToggleInputMode: () => void;
+  imageGenerationAvailable: boolean;
   searchEnabled: boolean;
   searchAvailable: boolean;
   onToggleSearch: () => void;
@@ -34,6 +37,9 @@ const ChatMainComponent: React.FC<ChatMainProps> = ({
   onSendMessage,
   onOpenSidebar,
   onStopStreaming,
+  inputMode,
+  onToggleInputMode,
+  imageGenerationAvailable,
   searchEnabled,
   searchAvailable,
   onToggleSearch,
@@ -48,6 +54,9 @@ const ChatMainComponent: React.FC<ChatMainProps> = ({
       disabled: isLoading,
       isStreaming,
       onStop: onStopStreaming,
+      inputMode,
+      onToggleInputMode,
+      imageGenerationAvailable,
       searchEnabled,
       searchAvailable,
       onToggleSearch,
@@ -64,6 +73,9 @@ const ChatMainComponent: React.FC<ChatMainProps> = ({
       onReadObsidian,
       onSendMessage,
       onStopStreaming,
+      inputMode,
+      onToggleInputMode,
+      imageGenerationAvailable,
       onToggleSearch,
       onWriteObsidian,
       searchAvailable,
@@ -76,7 +88,8 @@ const ChatMainComponent: React.FC<ChatMainProps> = ({
       const base = msg.role === Role.User ? 84 : 96;
       const textLines = Math.max(1, Math.ceil((msg.text?.length ?? 0) / 56));
       const reasoningLines = Math.max(0, Math.ceil((msg.reasoning?.length ?? 0) / 64));
-      return base + textLines * 20 + reasoningLines * 16;
+      const imageHeight = msg.imageUrl || msg.imageDataUrl ? 300 : 0;
+      return base + textLines * 20 + reasoningLines * 16 + imageHeight;
     },
     []
   );

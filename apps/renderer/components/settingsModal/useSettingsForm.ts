@@ -9,6 +9,7 @@ import { t } from '../../utils/i18n';
 import { providerMeta, resolveBaseUrlForProvider } from './constants';
 import { ActiveSettingsTab, settingsModalReducer, SettingsModalState } from './reducer';
 import { ProviderSettingsMap } from './types';
+import { ImageGenerationConfig } from '../../services/providers/types';
 
 const ACTIVE_TAB_STORAGE_KEY = 'gemini_settings_active_tab';
 
@@ -23,7 +24,8 @@ const getStoredToolRounds = () => {
 const getStoredActiveTab = (): ActiveSettingsTab => {
   if (typeof window === 'undefined') return 'provider';
   const stored = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
-  if (stored === 'provider' || stored === 'search' || stored === 'obsidian') return stored;
+  if (stored === 'provider' || stored === 'search' || stored === 'obsidian' || stored === 'image')
+    return stored;
   return 'provider';
 };
 
@@ -34,6 +36,7 @@ type BuildStateInput = {
   baseUrl?: string;
   customHeaders?: Array<{ key: string; value: string }>;
   tavily?: TavilyConfig;
+  imageGeneration?: ImageGenerationConfig;
   obsidianSettings: import('../../types').ObsidianSettings;
 };
 
@@ -44,6 +47,7 @@ const buildStateFromInput = (input: BuildStateInput): SettingsModalState => ({
   baseUrl: resolveBaseUrlForProvider(input.providerId, input.baseUrl),
   customHeaders: input.customHeaders ?? [],
   tavily: input.tavily ?? {},
+  imageGeneration: input.imageGeneration ?? {},
   showApiKey: false,
   showTavilyKey: false,
   obsidianMode: input.obsidianSettings.mode,
@@ -78,6 +82,7 @@ export const useSettingsForm = ({
   baseUrl,
   customHeaders,
   tavily,
+  imageGeneration,
   obsidianSettings,
 }: UseSettingsFormOptions) => {
   const obsidianMode = obsidianSettings.mode;
@@ -99,6 +104,7 @@ export const useSettingsForm = ({
         baseUrl,
         customHeaders: customHeaders ?? [],
         tavily: tavily ?? {},
+        imageGeneration: imageGeneration ?? {},
         obsidianSettings: {
           mode: obsidianMode,
           vaultPath: obsidianVaultPath,
@@ -127,6 +133,7 @@ export const useSettingsForm = ({
       providerId,
       customHeaders,
       tavily,
+      imageGeneration,
     ]
   );
 
@@ -165,6 +172,7 @@ export const useSettingsForm = ({
   const providerTabLabel = t('settings.modal.tab.model');
   const searchTabLabel = t('settings.modal.tab.search');
   const obsidianTabLabel = t('settings.modal.tab.obsidian');
+  const imageTabLabel = t('settings.modal.tab.image');
   const tabs = useMemo(
     () =>
       [
@@ -175,8 +183,13 @@ export const useSettingsForm = ({
           visible: !!activeMeta?.supportsTavily,
         },
         { id: 'obsidian' as const, label: obsidianTabLabel, visible: true },
+        {
+          id: 'image' as const,
+          label: imageTabLabel,
+          visible: !!activeMeta?.supportsImageGeneration,
+        },
       ].filter((tab) => tab.visible),
-    [activeMeta, obsidianTabLabel, providerTabLabel, searchTabLabel]
+    [activeMeta, imageTabLabel, obsidianTabLabel, providerTabLabel, searchTabLabel]
   );
 
   useEffect(() => {
@@ -198,6 +211,7 @@ export const useSettingsForm = ({
         baseUrl: resolveBaseUrlForProvider(nextProviderId, nextSettings?.baseUrl),
         customHeaders: nextSettings?.customHeaders ?? [],
         tavily: nextSettings?.tavily ?? {},
+        imageGeneration: nextSettings?.imageGeneration ?? {},
       },
     });
   };

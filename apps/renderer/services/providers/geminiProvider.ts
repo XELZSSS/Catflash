@@ -1,6 +1,12 @@
 import { GoogleGenAI, Chat, Content, GenerateContentResponse, Part, Type } from '@google/genai';
 import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
-import { ProviderChat, ProviderDefinition } from './types';
+import {
+  ImageGenerationConfig,
+  ImageGenerationRequest,
+  ImageGenerationResult,
+  ProviderChat,
+  ProviderDefinition,
+} from './types';
 import { buildSystemInstruction } from './prompts';
 import { GEMINI_MODEL_CATALOG } from './models';
 import { sanitizeApiKey } from './utils';
@@ -9,6 +15,7 @@ import { TavilyToolArgs } from './openaiChatHelpers';
 
 export const GEMINI_PROVIDER_ID: ProviderId = 'gemini';
 export const GEMINI_MODEL_NAME = 'gemini-2.5-flash';
+const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
 
 const DEFAULT_GEMINI_API_KEY = sanitizeApiKey(process.env.GEMINI_API_KEY ?? process.env.API_KEY);
 class GeminiProvider implements ProviderChat {
@@ -19,6 +26,7 @@ class GeminiProvider implements ProviderChat {
   private apiKey?: string;
   private client: GoogleGenAI | null = null;
   private tavilyConfig?: TavilyConfig;
+  private imageGenerationConfig?: ImageGenerationConfig;
   private history: ChatMessage[] = [];
 
   constructor() {
@@ -143,6 +151,49 @@ class GeminiProvider implements ProviderChat {
 
   setTavilyConfig(config?: TavilyConfig): void {
     this.tavilyConfig = normalizeTavilyConfig(config);
+  }
+
+  getImageGenerationConfig(): ImageGenerationConfig | undefined {
+    return this.imageGenerationConfig;
+  }
+
+  setImageGenerationConfig(config?: ImageGenerationConfig): void {
+    this.imageGenerationConfig = config;
+  }
+
+  supportsImageGeneration(): boolean {
+    return true;
+  }
+
+  async generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResult> {
+    const requested = this.modelName.trim();
+    const imageModel = requested.toLowerCase().includes('image') ? requested : GEMINI_IMAGE_MODEL;
+    const promptWithReference = request.subjectReference?.trim()
+      ? `${request.prompt}\n\nReference image URL: ${request.subjectReference.trim()}`
+      : request.prompt;
+    const config: Record<string, unknown> = {
+      responseModalities: ['TEXT', 'IMAGE'],
+    };
+    if (request.aspectRatio) {
+      config.imageConfig = { aspectRatio: request.aspectRatio };
+    }
+    const response = await this.getClient().models.generateContent({
+      model: imageModel,
+      contents: [{ role: 'user', parts: [{ text: promptWithReference }] }],
+      config: config as never,
+    });
+
+    const parts = response.candidates?.[0]?.content?.parts ?? [];
+    const imagePart = parts.find((part) => Boolean(part.inlineData?.data));
+    const base64Data = imagePart?.inlineData?.data;
+    if (!base64Data) {
+      throw new Error('Gemini image generation returned no image.');
+    }
+    const mimeType = imagePart?.inlineData?.mimeType ?? 'image/png';
+    return {
+      imageDataUrl: `data:${mimeType};base64,${base64Data}`,
+      revisedPrompt: response.text ?? undefined,
+    };
   }
 
   resetChat(): void {

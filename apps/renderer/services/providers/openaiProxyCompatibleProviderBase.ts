@@ -7,6 +7,7 @@ import {
   streamStandardChatCompletions,
 } from './openaiChatHelpers';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
+import { ImageGenerationConfig, ImageGenerationRequest, ImageGenerationResult } from './types';
 import { sanitizeApiKey } from './utils';
 
 type OpenAIProxyCompatibleProviderBaseOptions = {
@@ -20,6 +21,7 @@ type OpenAIProxyCompatibleProviderBaseOptions = {
   missingBaseUrlError: string;
   logLabel: string;
   supportsTavily?: boolean;
+  supportsImageGeneration?: boolean;
 };
 
 const normalizeCustomHeaders = (
@@ -42,6 +44,7 @@ export abstract class OpenAIProxyCompatibleProviderBase extends OpenAIStyleProvi
   protected targetBaseUrl?: string;
   protected customHeaders: Array<{ key: string; value: string }> = [];
   protected tavilyConfig?: TavilyConfig;
+  protected imageGenerationConfig?: ImageGenerationConfig;
 
   private readonly defaultModel: string;
   private readonly defaultApiKey?: string;
@@ -51,6 +54,7 @@ export abstract class OpenAIProxyCompatibleProviderBase extends OpenAIStyleProvi
   private readonly missingBaseUrlError: string;
   private readonly logLabel: string;
   private readonly supportsTavily: boolean;
+  private readonly supportsImageGenerationEnabled: boolean;
 
   constructor(options: OpenAIProxyCompatibleProviderBaseOptions) {
     super();
@@ -63,11 +67,16 @@ export abstract class OpenAIProxyCompatibleProviderBase extends OpenAIStyleProvi
     this.missingBaseUrlError = options.missingBaseUrlError;
     this.logLabel = options.logLabel;
     this.supportsTavily = options.supportsTavily ?? false;
+    this.supportsImageGenerationEnabled = options.supportsImageGeneration ?? false;
 
     this.apiKey = options.defaultApiKey;
     this.modelName = options.defaultModel;
     this.targetBaseUrl = options.defaultTargetBaseUrl;
     this.tavilyConfig = this.supportsTavily ? getDefaultTavilyConfig() : undefined;
+  }
+
+  protected resolveImageModel(): string {
+    return this.modelName;
   }
 
   protected resolveTargetBaseUrl(baseUrl?: string): string | undefined {
@@ -162,6 +171,44 @@ export abstract class OpenAIProxyCompatibleProviderBase extends OpenAIStyleProvi
   setTavilyConfig(config?: TavilyConfig): void {
     if (!this.supportsTavily) return;
     this.tavilyConfig = normalizeTavilyConfig(config);
+  }
+
+  getImageGenerationConfig(): ImageGenerationConfig | undefined {
+    return this.imageGenerationConfig;
+  }
+
+  setImageGenerationConfig(config?: ImageGenerationConfig): void {
+    this.imageGenerationConfig = config;
+  }
+
+  supportsImageGeneration(): boolean {
+    return this.supportsImageGenerationEnabled && Boolean(this.targetBaseUrl);
+  }
+
+  async generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResult> {
+    if (!this.supportsImageGeneration()) {
+      throw new Error(`Image generation is not enabled for provider: ${this.id}`);
+    }
+    const client = this.getClient();
+    const payload: Record<string, unknown> = {
+      model: this.resolveImageModel(),
+      prompt: request.prompt,
+      n: request.count ?? 1,
+      size: request.size ?? '1024x1024',
+    };
+
+    const response = (await client.images.generate(payload as never)) as unknown as {
+      data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
+    };
+    const first = response.data?.[0];
+    if (!first) {
+      throw new Error(`${this.logLabel} image generation returned no image.`);
+    }
+    return {
+      imageUrl: first.url,
+      imageDataUrl: first.b64_json ? `data:image/png;base64,${first.b64_json}` : undefined,
+      revisedPrompt: first.revised_prompt,
+    };
   }
 
   async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {
