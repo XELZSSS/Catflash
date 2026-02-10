@@ -48,6 +48,28 @@ export const useAppController = () => {
     isLoading: streaming.isLoading,
     onCloseSidebar: () => setIsSidebarOpen(false),
   });
+  const {
+    sessions,
+    filteredSessions,
+    currentSessionId,
+    searchQuery,
+    sortBy,
+    sortOrder,
+    editingSessionId,
+    editTitleInput,
+    setSearchQuery,
+    setSortBy,
+    setSortOrder,
+    setEditTitleInput,
+    startNewChat,
+    handleLoadSession,
+    handleStartEdit,
+    handleDeleteSession,
+    handleEditInputClick,
+    handleEditKeyDown,
+    handleSaveEdit,
+    handleCancelEdit,
+  } = chatSessions;
 
   useEffect(() => {
     applyLanguageToDocument();
@@ -78,12 +100,12 @@ export const useAppController = () => {
 
   const handleNewChatClick = useCallback(() => {
     if (streaming.isStreaming || streaming.isLoading) return;
-    chatSessions.startNewChat();
-  }, [chatSessions, streaming.isLoading, streaming.isStreaming]);
+    startNewChat();
+  }, [startNewChat, streaming.isLoading, streaming.isStreaming]);
 
   const handleSortOrderToggle = useCallback(() => {
-    chatSessions.setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-  }, [chatSessions]);
+    setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+  }, [setSortOrder]);
 
   const handleToggleSearch = useCallback(() => {
     setSearchEnabled((prev) => !prev);
@@ -116,7 +138,7 @@ export const useAppController = () => {
       setCurrentApiKey,
       setObsidianSettings,
       setLanguageState,
-      startNewChat: chatSessions.startNewChat,
+      startNewChat,
     });
 
   useEffect(() => {
@@ -154,37 +176,54 @@ export const useAppController = () => {
   const sidebarProps = useMemo(
     () => ({
       isSidebarOpen,
-      currentSessionId: chatSessions.currentSessionId,
-      sessions: chatSessions.sessions,
-      filteredSessions: chatSessions.filteredSessions,
-      searchQuery: chatSessions.searchQuery,
-      sortBy: chatSessions.sortBy,
-      sortOrder: chatSessions.sortOrder,
-      editingSessionId: chatSessions.editingSessionId,
-      editTitleInput: chatSessions.editTitleInput,
+      currentSessionId,
+      sessions,
+      filteredSessions,
+      searchQuery,
+      sortBy,
+      sortOrder,
+      editingSessionId,
+      editTitleInput,
       language,
       onNewChatClick: handleNewChatClick,
-      onSearchChange: chatSessions.setSearchQuery,
-      onSortByChange: chatSessions.setSortBy,
+      onSearchChange: setSearchQuery,
+      onSortByChange: setSortBy,
       onSortOrderToggle: handleSortOrderToggle,
-      onLoadSession: chatSessions.handleLoadSession,
-      onStartEdit: chatSessions.handleStartEdit,
-      onDeleteSession: chatSessions.handleDeleteSession,
-      onEditTitleInputChange: chatSessions.setEditTitleInput,
-      onEditInputClick: chatSessions.handleEditInputClick,
-      onEditKeyDown: chatSessions.handleEditKeyDown,
-      onSaveEdit: chatSessions.handleSaveEdit,
-      onCancelEdit: chatSessions.handleCancelEdit,
+      onLoadSession: handleLoadSession,
+      onStartEdit: handleStartEdit,
+      onDeleteSession: handleDeleteSession,
+      onEditTitleInputChange: setEditTitleInput,
+      onEditInputClick: handleEditInputClick,
+      onEditKeyDown: handleEditKeyDown,
+      onSaveEdit: handleSaveEdit,
+      onCancelEdit: handleCancelEdit,
       onLanguageChange: handleLanguageChange,
       onOpenSettings: () => setIsSettingsOpen(true),
     }),
     [
-      chatSessions,
+      currentSessionId,
+      editTitleInput,
+      editingSessionId,
+      filteredSessions,
+      handleCancelEdit,
+      handleDeleteSession,
+      handleEditInputClick,
+      handleEditKeyDown,
+      handleLoadSession,
+      handleSaveEdit,
+      handleStartEdit,
       handleLanguageChange,
       handleNewChatClick,
       handleSortOrderToggle,
       isSidebarOpen,
       language,
+      searchQuery,
+      sessions,
+      setEditTitleInput,
+      setSearchQuery,
+      setSortBy,
+      sortBy,
+      sortOrder,
     ]
   );
 

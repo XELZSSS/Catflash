@@ -6,6 +6,7 @@ import {
   runToolCallLoop,
   streamStandardChatCompletions,
 } from './openaiChatHelpers';
+import { getProxyAuthHeadersForTarget } from './proxy';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
 import { ImageGenerationConfig, ImageGenerationRequest, ImageGenerationResult } from './types';
 import { sanitizeApiKey } from './utils';
@@ -104,6 +105,7 @@ export abstract class OpenAIProxyCompatibleProviderBase extends OpenAIStyleProvi
         defaultHeaders: {
           'x-openai-compatible-base-url': this.targetBaseUrl,
           'x-openai-compatible-headers': JSON.stringify(headersPayload),
+          ...getProxyAuthHeadersForTarget(this.proxyBaseUrl),
         },
       });
     }

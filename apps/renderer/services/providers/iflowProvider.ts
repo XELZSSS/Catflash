@@ -2,11 +2,12 @@ import OpenAI from 'openai';
 import { ProviderId } from '../../types';
 import { IFLOW_MODEL_CATALOG } from './models';
 import { OpenAIStandardProviderBase } from './openaiStandardProviderBase';
+import { buildProxyUrl, getProxyAuthHeadersForTarget } from './proxy';
 import { ProviderChat, ProviderDefinition } from './types';
 import { sanitizeApiKey } from './utils';
 
 export const IFLOW_PROVIDER_ID: ProviderId = 'iflow';
-export const IFLOW_BASE_URL = 'http://localhost:4010/proxy/iflow';
+export const IFLOW_BASE_URL = buildProxyUrl('/proxy/iflow');
 
 const FALLBACK_IFLOW_MODEL = 'TBStars2-200B-A13B';
 const IFLOW_MODEL_FROM_ENV = process.env.IFLOW_MODEL;
@@ -58,6 +59,9 @@ class IflowProvider extends OpenAIStandardProviderBase implements ProviderChat {
       apiKey,
       baseURL: this.baseUrl,
       dangerouslyAllowBrowser: true,
+      defaultHeaders: {
+        ...getProxyAuthHeadersForTarget(this.baseUrl),
+      },
     });
   }
 

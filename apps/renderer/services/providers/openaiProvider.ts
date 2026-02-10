@@ -11,12 +11,12 @@ import {
 import { buildSystemInstruction } from './prompts';
 import { OPENAI_MODEL_CATALOG } from './models';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
-import { getMaxToolCallRounds, sanitizeApiKey } from './utils';
 import {
-  OpenAIChatCreateStreaming,
   OpenAIChatMessages,
-  OpenAIStreamChunk,
+  runToolCallLoop,
+  streamStandardChatCompletions,
 } from './openaiChatHelpers';
+import { sanitizeApiKey } from './utils';
 
 export const OPENAI_PROVIDER_ID: ProviderId = 'openai';
 const FALLBACK_OPENAI_MODEL = 'gpt-5.2';
@@ -95,29 +95,6 @@ class OpenAIProvider extends OpenAIStyleProviderBase implements ProviderChat {
 
   private buildTools(): OpenAI.Chat.Completions.ChatCompletionTool[] | undefined {
     return buildOpenAITavilyTools(this.tavilyConfig);
-  }
-
-  private extractOutputText(response: unknown): string {
-    const r = response as {
-      output_text?: string;
-      output?: Array<{
-        content?: Array<{ type?: string; text?: string }>;
-      }>;
-    };
-
-    if (r.output_text) {
-      return r.output_text.trim();
-    }
-
-    const output = r.output ?? [];
-    for (const item of output) {
-      for (const part of item.content ?? []) {
-        if (part.type?.includes('text') && part.text) {
-          return part.text.trim();
-        }
-      }
-    }
-    return '';
   }
 
   getId(): ProviderId {
@@ -258,75 +235,35 @@ class OpenAIProvider extends OpenAIStyleProviderBase implements ProviderChat {
           }
         }
       } else {
-        let workingMessages = this.buildMessages(nextHistory, this.id, this.modelName);
-        let preflightMessage:
-          | (OpenAI.Chat.Completions.ChatCompletionMessage & {
-              tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }>;
-            })
-          | null = null;
-        let hadToolCalls = false;
-        const maxToolRounds = getMaxToolCallRounds();
-
-        for (let round = 0; round < maxToolRounds; round += 1) {
-          const initialResponse = await client.chat.completions.create({
-            model: this.modelName,
-            messages: workingMessages,
-            tools,
-            tool_choice: 'auto',
-            stream: false,
-          });
-
-          preflightMessage = initialResponse.choices?.[0]?.message ?? null;
-          const toolCalls =
-            (preflightMessage?.tool_calls as Array<{
-              id: string;
-              function?: { name?: string; arguments?: string };
-            }>) ?? [];
-
-          if (!toolCalls.length) {
-            break;
-          }
-
-          hadToolCalls = true;
-          const toolMessages = await this.buildToolMessages(toolCalls, this.tavilyConfig);
-          workingMessages = [
-            ...workingMessages,
-            {
-              role: 'assistant' as const,
-              content: preflightMessage?.content ?? null,
-              tool_calls: toolCalls,
-            },
-            ...toolMessages,
-          ];
-        }
+        const baseMessages = this.buildMessages(nextHistory, this.id, this.modelName);
+        const {
+          messages: workingMessages,
+          preflightMessage,
+          hadToolCalls,
+        } = await runToolCallLoop({
+          client,
+          model: this.modelName,
+          messages: baseMessages as OpenAIChatMessages,
+          tools,
+          tavilyConfig: this.tavilyConfig,
+          buildToolMessages: this.buildToolMessages.bind(this),
+        });
 
         if (!hadToolCalls && preflightMessage?.content) {
           fullResponse = preflightMessage.content;
           yield fullResponse;
         } else {
-          const stream = (await client.chat.completions.create({
+          for await (const chunk of streamStandardChatCompletions({
+            client,
             model: this.modelName,
-            messages: workingMessages as OpenAIChatMessages,
-            stream: true,
-          } as OpenAIChatCreateStreaming)) as unknown as AsyncIterable<OpenAIStreamChunk>;
-
-          for await (const chunk of stream) {
-            const reasoningDelta =
-              chunk.choices?.[0]?.delta?.reasoning_content ??
-              chunk.choices?.[0]?.delta?.reasoning_text ??
-              chunk.choices?.[0]?.delta?.reasoning ??
-              chunk.choices?.[0]?.message?.reasoning_content ??
-              chunk.choices?.[0]?.message?.reasoning_text ??
-              chunk.choices?.[0]?.message?.reasoning;
-            if (reasoningDelta) {
-              yield `<think>${reasoningDelta}</think>`;
+            messages: workingMessages,
+          })) {
+            if (chunk.reasoning) {
+              yield `<think>${chunk.reasoning}</think>`;
             }
-
-            const contentDelta =
-              chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content;
-            if (contentDelta) {
-              fullResponse += contentDelta;
-              yield contentDelta;
+            if (chunk.content) {
+              fullResponse += chunk.content;
+              yield chunk.content;
             }
           }
         }

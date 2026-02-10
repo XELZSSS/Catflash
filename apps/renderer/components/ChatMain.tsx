@@ -97,6 +97,7 @@ const ChatMainComponent: React.FC<ChatMainProps> = ({
     items: messages,
     containerRef: messagesContainerRef,
     estimateSize: estimateMessageSize,
+    getItemKey: (msg) => msg.id,
     overscan: 8,
   });
 

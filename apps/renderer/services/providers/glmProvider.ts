@@ -6,20 +6,16 @@ import {
   ProviderChat,
   ProviderDefinition,
 } from './types';
-import { buildSystemInstruction } from './prompts';
 import { GLM_MODEL_CATALOG } from './models';
 import { getMaxToolCallRounds, sanitizeApiKey } from './utils';
-import {
-  buildOpenAITavilyTools,
-  callTavilySearch,
-  getDefaultTavilyConfig,
-  normalizeTavilyConfig,
-} from './tavily';
-import { OpenAIChatMessages, OpenAIStreamChunk, TavilyToolArgs } from './openaiChatHelpers';
+import { buildProxyUrl, getProxyAuthHeadersForTarget } from './proxy';
+import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
+import { OpenAIChatMessages, OpenAIStreamChunk } from './openaiChatHelpers';
+import { OpenAIStyleProviderBase } from './openaiBase';
 
 export const GLM_PROVIDER_ID: ProviderId = 'glm';
-export const GLM_BASE_URL_CN = 'http://localhost:4010/proxy/glm-cn/chat/completions';
-export const GLM_BASE_URL_INTL = 'http://localhost:4010/proxy/glm-intl/chat/completions';
+export const GLM_BASE_URL_CN = buildProxyUrl('/proxy/glm-cn/chat/completions');
+export const GLM_BASE_URL_INTL = buildProxyUrl('/proxy/glm-intl/chat/completions');
 
 const resolveBaseUrl = (value: string): string => {
   if (value.startsWith('http://') || value.startsWith('https://')) {
@@ -58,21 +54,6 @@ const GLM_MODELS = Array.from(
 
 const DEFAULT_GLM_API_KEY = sanitizeApiKey(process.env.GLM_API_KEY);
 
-type GlmMessage = {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-};
-
-const buildMessages = (history: ChatMessage[], systemInstruction: string): GlmMessage[] => [
-  { role: 'system', content: systemInstruction },
-  ...history
-    .filter((msg) => !msg.isError)
-    .map((msg) => ({
-      role: (msg.role === Role.User ? 'user' : 'assistant') as GlmMessage['role'],
-      content: msg.text,
-    })),
-];
-
 const parseSseLines = (buffer: string): { lines: string[]; rest: string } => {
   const parts = buffer.split(/\r?\n/);
   const rest = parts.pop() ?? '';
@@ -92,16 +73,16 @@ const resolveGlmImageModel = (modelName: string): string => {
   return 'glm-image';
 };
 
-class GlmProvider implements ProviderChat {
+class GlmProvider extends OpenAIStyleProviderBase implements ProviderChat {
   private readonly id: ProviderId = GLM_PROVIDER_ID;
   private apiKey?: string;
   private modelName: string;
   private baseUrl: string;
   private tavilyConfig?: TavilyConfig;
   private imageGenerationConfig?: ImageGenerationConfig;
-  private history: ChatMessage[] = [];
 
   constructor() {
+    super();
     this.apiKey = DEFAULT_GLM_API_KEY;
     this.modelName = glmProviderDefinition.defaultModel;
     this.baseUrl = getDefaultGlmBaseUrl();
@@ -179,6 +160,7 @@ class GlmProvider implements ProviderChat {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.getApiKeyValue()}`,
+        ...getProxyAuthHeadersForTarget(this.baseUrl),
       },
       body: JSON.stringify({
         model: resolveGlmImageModel(this.modelName),
@@ -208,14 +190,6 @@ class GlmProvider implements ProviderChat {
     };
   }
 
-  resetChat(): void {
-    this.history = [];
-  }
-
-  async startChatWithHistory(messages: ChatMessage[]): Promise<void> {
-    this.history = messages.filter((msg) => !msg.isError);
-  }
-
   async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {
     const userMessage: ChatMessage = {
       id: `glm-user-${Date.now()}`,
@@ -225,8 +199,7 @@ class GlmProvider implements ProviderChat {
     };
 
     const nextHistory = [...this.history, userMessage];
-    const systemInstruction = buildSystemInstruction(this.id, this.modelName);
-    const messages = buildMessages(nextHistory, systemInstruction);
+    const messages = this.buildMessages(nextHistory, this.id, this.modelName);
 
     const tools = buildOpenAITavilyTools(this.tavilyConfig);
     const payload = {
@@ -245,6 +218,7 @@ class GlmProvider implements ProviderChat {
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${this.getApiKeyValue()}`,
+            ...getProxyAuthHeadersForTarget(this.baseUrl),
           },
           body: JSON.stringify({ ...payload, messages: workingMessages, stream: false }),
         });
@@ -268,50 +242,7 @@ class GlmProvider implements ProviderChat {
           break;
         }
 
-        const toolResults = await Promise.all(
-          toolCalls.map(async (call) => {
-            if (call.function?.name !== 'tavily_search') {
-              return {
-                tool_call_id: call.id,
-                content: JSON.stringify({
-                  error: `Unsupported tool: ${call.function?.name ?? 'unknown'}`,
-                }),
-              };
-            }
-            let args: TavilyToolArgs = {};
-            try {
-              args = call.function?.arguments ? JSON.parse(call.function.arguments) : {};
-            } catch {
-              args = {};
-            }
-            if (!args.query) {
-              return {
-                tool_call_id: call.id,
-                content: JSON.stringify({ error: 'Missing query for tavily_search' }),
-              };
-            }
-            try {
-              const result = await callTavilySearch(this.tavilyConfig, args);
-              return {
-                tool_call_id: call.id,
-                content: JSON.stringify(result),
-              };
-            } catch (error) {
-              return {
-                tool_call_id: call.id,
-                content: JSON.stringify({
-                  error: error instanceof Error ? error.message : 'Tavily search failed',
-                }),
-              };
-            }
-          })
-        );
-
-        const toolMessages = toolResults.map((result) => ({
-          role: 'tool',
-          tool_call_id: result.tool_call_id,
-          content: result.content,
-        }));
+        const toolMessages = await this.buildToolMessages(toolCalls, this.tavilyConfig);
 
         workingMessages = [
           ...workingMessages,
@@ -332,6 +263,7 @@ class GlmProvider implements ProviderChat {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.getApiKeyValue()}`,
+        ...getProxyAuthHeadersForTarget(this.baseUrl),
       },
       body: JSON.stringify({ ...payload, stream: true }),
     });

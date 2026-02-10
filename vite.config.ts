@@ -4,12 +4,13 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+  const devServerHost = env.VITE_DEV_HOST || '127.0.0.1';
   return {
     root: path.resolve(__dirname, 'apps/renderer'),
     base: './',
     server: {
       port: 3000,
-      host: '0.0.0.0',
+      host: devServerHost,
       proxy: {
         '/minimax-intl': {
           target: 'https://api.minimax.io',
@@ -57,6 +58,8 @@ export default defineConfig(({ mode }) => {
       'process.env.MINIMAX_API_KEY': JSON.stringify(env.MINIMAX_API_KEY),
       'process.env.MINIMAX_MODEL': JSON.stringify(env.MINIMAX_MODEL),
       'process.env.MINIMAX_BASE_URL': JSON.stringify(env.MINIMAX_BASE_URL),
+      'process.env.MINIMAX_PROXY_PORT': JSON.stringify(env.MINIMAX_PROXY_PORT),
+      'process.env.CATFLASH_PROXY_TOKEN': JSON.stringify(env.CATFLASH_PROXY_TOKEN),
     },
     resolve: {
       alias: {

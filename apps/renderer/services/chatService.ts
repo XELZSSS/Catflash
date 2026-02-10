@@ -1,5 +1,6 @@
 import { ChatMessage, ProviderId } from '../types';
 import { ProviderRouter } from './providers/router';
+import { supportsProviderImageGeneration } from './providers/capabilities';
 import { getProviderDefaultModel, getProviderModels, listProviderIds } from './providers/registry';
 import { getDefaultProviderSettings, ProviderSettings } from './providers/defaults';
 import { ImageGenerationRequest, ImageGenerationResult, ProviderChat } from './providers/types';
@@ -17,15 +18,6 @@ export class ChatService {
   private provider: ProviderChat;
   private providerSettings: Record<ProviderId, ProviderSettings>;
   private searchEnabled = true;
-  private static readonly IMAGE_PROVIDER_SET = new Set<ProviderId>([
-    'openai',
-    'openai-compatible',
-    'ollama',
-    'xai',
-    'gemini',
-    'glm',
-    'minimax',
-  ]);
 
   constructor() {
     this.providerSettings = loadProviderSettings();
@@ -158,7 +150,7 @@ export class ChatService {
   }
 
   supportsImageGeneration(providerId: ProviderId = this.getProviderId()): boolean {
-    if (!ChatService.IMAGE_PROVIDER_SET.has(providerId)) return false;
+    if (!supportsProviderImageGeneration(providerId)) return false;
     if (providerId !== this.getProviderId()) return true;
     if (!this.provider.supportsImageGeneration) return false;
     return this.provider.supportsImageGeneration();

@@ -1,3 +1,4 @@
+/* global process */
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('gero', {
@@ -5,6 +6,8 @@ contextBridge.exposeInMainWorld('gero', {
   toggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),
   close: () => ipcRenderer.invoke('window:close'),
   isMaximized: () => ipcRenderer.invoke('window:is-maximized'),
+  getProxyToken: () => process.env.CATFLASH_PROXY_TOKEN,
+  getProxyPort: () => process.env.MINIMAX_PROXY_PORT ?? '4010',
   onMaximizeChanged: (callback) => {
     const onMax = () => callback(true);
     const onUnmax = () => callback(false);

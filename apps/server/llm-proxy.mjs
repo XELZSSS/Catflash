@@ -4,12 +4,64 @@ import cors from 'cors';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const PORT = Number(process.env.MINIMAX_PROXY_PORT ?? 4010);
+const HOST = process.env.MINIMAX_PROXY_HOST ?? '127.0.0.1';
+const AUTH_HEADER = 'x-catflash-proxy-token';
+const PROXY_AUTH_TOKEN = (process.env.CATFLASH_PROXY_TOKEN ?? '').trim();
+const proxyAuthEnabled = PROXY_AUTH_TOKEN.length > 0;
+const DEFAULT_ALLOWED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
 const app = express();
-app.use(cors());
+app.disable('x-powered-by');
+
+const parseHeaderValue = (value) => {
+  if (!value) return '';
+  if (Array.isArray(value)) return value[0] ?? '';
+  return String(value);
+};
+
+const allowedOrigins = new Set(DEFAULT_ALLOWED_ORIGINS);
+const additionalAllowedOrigins = (process.env.MINIMAX_PROXY_ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
+for (const origin of additionalAllowedOrigins) {
+  allowedOrigins.add(origin);
+}
+
+const isAllowedOrigin = (origin) => {
+  if (!origin || origin === 'null') return true;
+  return allowedOrigins.has(origin);
+};
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      callback(null, isAllowedOrigin(origin));
+    },
+  })
+);
+
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  next();
+});
+
+app.use('/proxy', (req, res, next) => {
+  if (!proxyAuthEnabled || req.method === 'OPTIONS') {
+    next();
+    return;
+  }
+  const token = parseHeaderValue(req.headers[AUTH_HEADER]).trim();
+  if (!token || token !== PROXY_AUTH_TOKEN) {
+    res.status(401).json({ error: 'Unauthorized proxy request.' });
+    return;
+  }
+  next();
+});
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, auth: proxyAuthEnabled });
 });
 
 const commonOptions = {
@@ -32,13 +84,8 @@ const blockedHeaders = new Set([
   'accept-encoding',
   'origin',
   'referer',
+  AUTH_HEADER,
 ]);
-
-const parseHeaderValue = (value) => {
-  if (!value) return '';
-  if (Array.isArray(value)) return value[0] ?? '';
-  return String(value);
-};
 
 const normalizeTargetUrl = (value) => {
   const raw = parseHeaderValue(value).trim();
@@ -46,6 +93,7 @@ const normalizeTargetUrl = (value) => {
   try {
     const url = new URL(raw);
     if (!['http:', 'https:'].includes(url.protocol)) return null;
+    if (url.username || url.password) return null;
     return url.toString();
   } catch {
     return null;
@@ -125,6 +173,6 @@ app.use(
   })
 );
 
-app.listen(PORT, () => {
-  console.log(`LLM proxy listening on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`LLM proxy listening on http://${HOST}:${PORT}`);
 });

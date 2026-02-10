@@ -1,5 +1,6 @@
 import { ProviderId, TavilyConfig } from '../../types';
 import { ImageGenerationConfig } from './types';
+import { supportsProviderImageGeneration, supportsProviderTavily } from './capabilities';
 import { getProviderDefaultModel, listProviderIds } from './registry';
 import { getDefaultGlmBaseUrl } from './glmProvider';
 import { getDefaultMinimaxBaseUrl } from './minimaxProvider';
@@ -19,32 +20,10 @@ export interface ProviderSettings {
   imageGeneration?: ImageGenerationConfig;
 }
 
-const TAVILY_ENABLED_PROVIDERS = new Set<ProviderId>([
-  'openai-compatible',
-  'openai',
-  'xai',
-  'gemini',
-  'deepseek',
-  'glm',
-  'minimax',
-  'moonshot',
-  'iflow',
-]);
-
-const IMAGE_ENABLED_PROVIDERS = new Set<ProviderId>([
-  'openai',
-  'openai-compatible',
-  'ollama',
-  'xai',
-  'gemini',
-  'glm',
-  'minimax',
-]);
-
 const getDefaultImageGenerationConfig = (
   providerId: ProviderId
 ): ImageGenerationConfig | undefined => {
-  if (!IMAGE_ENABLED_PROVIDERS.has(providerId)) return undefined;
+  if (!supportsProviderImageGeneration(providerId)) return undefined;
   if (providerId === 'minimax') {
     return {
       aspectRatio: '1:1',
@@ -112,7 +91,7 @@ export const getDefaultProviderSettings = (providerId: ProviderId): ProviderSett
   modelName: getProviderDefaultModel(providerId),
   baseUrl: resolveDefaultBaseUrl(providerId),
   customHeaders: [],
-  tavily: TAVILY_ENABLED_PROVIDERS.has(providerId) ? getDefaultTavilyConfig() : undefined,
+  tavily: supportsProviderTavily(providerId) ? getDefaultTavilyConfig() : undefined,
   imageGeneration: getDefaultImageGenerationConfig(providerId),
 });
 

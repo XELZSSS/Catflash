@@ -81,6 +81,13 @@ npm run dev
   - Subject Reference（参考图 URL，部分供应商生效）
 - 生成完成后，消息气泡支持“下载图片 / 复制链接”
 
+### 🔒 本地代理安全参数（可选）
+
+- `MINIMAX_PROXY_PORT`：本地代理端口（默认 `4010`）
+- `MINIMAX_PROXY_HOST`：本地代理监听地址（默认 `127.0.0.1`）
+- `MINIMAX_PROXY_ALLOWED_ORIGINS`：额外允许的 CORS 来源，多个用逗号分隔
+- `CATFLASH_PROXY_TOKEN`：代理访问令牌；设置后，请求需带 `x-catflash-proxy-token` 头
+
 ### 🦙 Ollama 专用说明
 
 - 默认 Base URL：`http://localhost:11434/v1/`

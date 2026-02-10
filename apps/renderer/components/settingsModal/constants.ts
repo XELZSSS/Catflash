@@ -1,13 +1,15 @@
 import { ProviderId } from '../../types';
+import { PROVIDER_CAPABILITIES } from '../../services/providers/capabilities';
+import { buildProxyUrl } from '../../services/providers/proxy';
 import { t } from '../../utils/i18n';
 import { DropdownOption } from '../settings/Dropdown';
 
-export const MINIMAX_BASE_URL_INTL = 'http://localhost:4010/proxy/minimax-intl';
-export const MINIMAX_BASE_URL_CN = 'http://localhost:4010/proxy/minimax-cn';
-export const MOONSHOT_BASE_URL_INTL = 'http://localhost:4010/proxy/moonshot-intl';
-export const MOONSHOT_BASE_URL_CN = 'http://localhost:4010/proxy/moonshot-cn';
-export const GLM_BASE_URL_INTL = 'http://localhost:4010/proxy/glm-intl/chat/completions';
-export const GLM_BASE_URL_CN = 'http://localhost:4010/proxy/glm-cn/chat/completions';
+export const MINIMAX_BASE_URL_INTL = buildProxyUrl('/proxy/minimax-intl');
+export const MINIMAX_BASE_URL_CN = buildProxyUrl('/proxy/minimax-cn');
+export const MOONSHOT_BASE_URL_INTL = buildProxyUrl('/proxy/moonshot-intl');
+export const MOONSHOT_BASE_URL_CN = buildProxyUrl('/proxy/moonshot-cn');
+export const GLM_BASE_URL_INTL = buildProxyUrl('/proxy/glm-intl/chat/completions');
+export const GLM_BASE_URL_CN = buildProxyUrl('/proxy/glm-cn/chat/completions');
 
 export const resolveBaseUrlForProvider = (
   providerId: ProviderId,
@@ -41,27 +43,19 @@ export const providerMeta: Record<
     supportsImageGeneration?: boolean;
   }
 > = {
-  openai: { label: 'OpenAI', supportsTavily: true, supportsImageGeneration: true },
+  openai: { label: 'OpenAI', ...PROVIDER_CAPABILITIES.openai },
   'openai-compatible': {
     label: 'OpenAI-Compatible',
-    supportsTavily: true,
-    supportsBaseUrl: true,
-    supportsCustomHeaders: true,
-    supportsImageGeneration: true,
+    ...PROVIDER_CAPABILITIES['openai-compatible'],
   },
-  ollama: { label: 'Ollama', supportsBaseUrl: true, supportsImageGeneration: true },
-  xai: { label: 'xAI', supportsTavily: true, supportsImageGeneration: true },
-  gemini: { label: 'Gemini', supportsTavily: true, supportsImageGeneration: true },
-  deepseek: { label: 'DeepSeek', supportsTavily: true },
-  glm: { label: 'GLM', supportsTavily: true, supportsRegion: true, supportsImageGeneration: true },
-  minimax: {
-    label: 'MiniMax',
-    supportsTavily: true,
-    supportsRegion: true,
-    supportsImageGeneration: true,
-  },
-  moonshot: { label: 'Moonshot', supportsTavily: true, supportsRegion: true },
-  iflow: { label: 'iFlow', supportsTavily: true },
+  ollama: { label: 'Ollama', ...PROVIDER_CAPABILITIES.ollama },
+  xai: { label: 'xAI', ...PROVIDER_CAPABILITIES.xai },
+  gemini: { label: 'Gemini', ...PROVIDER_CAPABILITIES.gemini },
+  deepseek: { label: 'DeepSeek', ...PROVIDER_CAPABILITIES.deepseek },
+  glm: { label: 'GLM', ...PROVIDER_CAPABILITIES.glm },
+  minimax: { label: 'MiniMax', ...PROVIDER_CAPABILITIES.minimax },
+  moonshot: { label: 'Moonshot', ...PROVIDER_CAPABILITIES.moonshot },
+  iflow: { label: 'iFlow', ...PROVIDER_CAPABILITIES.iflow },
 };
 
 export const getTavilySearchDepthOptions = (): DropdownOption[] => [

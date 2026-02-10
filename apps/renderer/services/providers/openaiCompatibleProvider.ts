@@ -1,11 +1,12 @@
 import { ProviderId } from '../../types';
 import { OPENAI_COMPATIBLE_MODEL_CATALOG } from './models';
 import { OpenAIProxyCompatibleProviderBase } from './openaiProxyCompatibleProviderBase';
+import { buildProxyUrl } from './proxy';
 import { ProviderChat, ProviderDefinition } from './types';
 import { sanitizeApiKey } from './utils';
 
 export const OPENAI_COMPATIBLE_PROVIDER_ID: ProviderId = 'openai-compatible';
-const OPENAI_COMPATIBLE_PROXY_BASE_URL = 'http://localhost:4010/proxy/openai-compatible';
+const OPENAI_COMPATIBLE_PROXY_BASE_URL = buildProxyUrl('/proxy/openai-compatible');
 
 const FALLBACK_OPENAI_COMPATIBLE_MODEL = 'gpt-4.1-mini';
 const OPENAI_COMPATIBLE_MODEL_FROM_ENV = process.env.OPENAI_COMPATIBLE_MODEL;

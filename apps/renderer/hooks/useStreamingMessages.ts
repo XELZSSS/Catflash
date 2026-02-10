@@ -4,7 +4,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { ChatService } from '../services/chatService';
 import { ChatMessage, Role } from '../types';
 import { t } from '../utils/i18n';
-import { parseThinkTags } from '../utils/streaming';
+import {
+  appendThinkStreamChunk,
+  createThinkStreamParserState,
+  finalizeThinkStreamParserState,
+} from '../utils/streaming';
 import { formatMessageTime } from '../utils/time';
 
 type UseStreamingMessagesOptions = {
@@ -111,18 +115,18 @@ export const useStreamingMessages = ({
         ]);
         requestAnimationFrame(() => scrollToBottom('auto', true));
 
-        let fullResponseRaw = '';
         let fullResponseClean = '';
         let fullResponseReasoning = '';
         let isFirstChunk = true;
         let pendingBuffer = '';
         let isFlushScheduled = false;
+        let parserState = createThinkStreamParserState();
 
         const flushBufferedResponse = () => {
           isFlushScheduled = false;
           if (!pendingBuffer) return;
-          fullResponseRaw += pendingBuffer;
-          const parsed = parseThinkTags(fullResponseRaw);
+          parserState = appendThinkStreamChunk(parserState, pendingBuffer);
+          const parsed = finalizeThinkStreamParserState(parserState);
           fullResponseClean = parsed.cleaned;
           fullResponseReasoning = parsed.reasoning;
           pendingBuffer = '';

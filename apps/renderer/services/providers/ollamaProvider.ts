@@ -1,6 +1,7 @@
 import { ProviderId } from '../../types';
 import { OLLAMA_MODEL_CATALOG } from './models';
 import { OpenAIProxyCompatibleProviderBase } from './openaiProxyCompatibleProviderBase';
+import { buildProxyUrl } from './proxy';
 import {
   ImageGenerationRequest,
   ImageGenerationResult,
@@ -10,7 +11,7 @@ import {
 import { sanitizeApiKey } from './utils';
 
 export const OLLAMA_PROVIDER_ID: ProviderId = 'ollama';
-const OLLAMA_PROXY_BASE_URL = 'http://localhost:4010/proxy/openai-compatible';
+const OLLAMA_PROXY_BASE_URL = buildProxyUrl('/proxy/openai-compatible');
 const OLLAMA_DEFAULT_BASE_URL = 'http://localhost:11434/v1/';
 
 const FALLBACK_OLLAMA_MODEL = 'llama3.2';

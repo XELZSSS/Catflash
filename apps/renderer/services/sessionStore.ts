@@ -9,6 +9,7 @@ type StoredSession = Partial<ChatSession> &
   Pick<ChatSession, 'id' | 'title' | 'createdAt' | 'updatedAt'>;
 
 const memoryStore = new Map<string, string>();
+let sessionsCache: ChatSession[] | null = null;
 
 const getStorage = (): Storage | null => {
   if (typeof window === 'undefined') return null;
@@ -56,7 +57,13 @@ const normalizeSession = (session: StoredSession): ChatSession => {
   };
 };
 
-export const getSessions = (): ChatSession[] => {
+const cloneSessions = (sessions: ChatSession[]): ChatSession[] =>
+  sessions.map((session) => ({
+    ...session,
+    messages: session.messages.map((message) => ({ ...message })),
+  }));
+
+const loadSessionsFromStorage = (): ChatSession[] => {
   try {
     const stored = storageGetItem(STORAGE_KEY);
     const parsed: StoredSession[] = stored ? JSON.parse(stored) : [];
@@ -65,6 +72,22 @@ export const getSessions = (): ChatSession[] => {
     console.error('Failed to load sessions from storage:', error);
     return [];
   }
+};
+
+const getCachedSessions = (): ChatSession[] => {
+  if (!sessionsCache) {
+    sessionsCache = loadSessionsFromStorage();
+  }
+  return sessionsCache;
+};
+
+const persistSessions = (sessions: ChatSession[]): void => {
+  storageSetItem(STORAGE_KEY, JSON.stringify(sessions));
+  sessionsCache = sessions;
+};
+
+export const getSessions = (): ChatSession[] => {
+  return cloneSessions(getCachedSessions());
 };
 
 export const getActiveSessionId = (): string | null => {
@@ -94,7 +117,7 @@ export const clearActiveSessionId = (): void => {
 
 export const saveSession = (session: ChatSession): void => {
   try {
-    const sessions = getSessions();
+    const sessions = cloneSessions(getCachedSessions());
     const normalized = normalizeSession(session);
     const index = sessions.findIndex((s) => s.id === normalized.id);
 
@@ -107,7 +130,7 @@ export const saveSession = (session: ChatSession): void => {
     // Sort by updated at desc
     sessions.sort((a, b) => b.updatedAt - a.updatedAt);
 
-    storageSetItem(STORAGE_KEY, JSON.stringify(sessions));
+    persistSessions(sessions);
   } catch (error) {
     console.error('Failed to save session:', error);
   }
@@ -115,13 +138,13 @@ export const saveSession = (session: ChatSession): void => {
 
 export const updateSessionTitle = (sessionId: string, newTitle: string): ChatSession[] => {
   try {
-    const sessions = getSessions();
+    const sessions = cloneSessions(getCachedSessions());
     const index = sessions.findIndex((s) => s.id === sessionId);
 
     if (index >= 0) {
       sessions[index].title = newTitle;
       // We do not update 'updatedAt' here to prevent the session from jumping to the top of the list just for a rename
-      storageSetItem(STORAGE_KEY, JSON.stringify(sessions));
+      persistSessions(sessions);
       return sessions;
     }
     return sessions;
@@ -133,8 +156,8 @@ export const updateSessionTitle = (sessionId: string, newTitle: string): ChatSes
 
 export const deleteSession = (sessionId: string): ChatSession[] => {
   try {
-    const sessions = getSessions().filter((s) => s.id !== sessionId);
-    storageSetItem(STORAGE_KEY, JSON.stringify(sessions));
+    const sessions = cloneSessions(getCachedSessions()).filter((s) => s.id !== sessionId);
+    persistSessions(sessions);
     return sessions;
   } catch (error) {
     console.error('Failed to delete session:', error);

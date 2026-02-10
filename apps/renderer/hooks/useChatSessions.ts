@@ -67,7 +67,9 @@ export const useChatSessions = ({
       setCurrentModelName(session.model);
       setCurrentApiKey(chatService.getApiKey() ?? '');
 
-      chatService.startChatWithHistory(session.messages);
+      void chatService.startChatWithHistory(session.messages).catch((error) => {
+        console.error('Failed to sync session history:', error);
+      });
     },
     [
       chatService,
@@ -154,12 +156,17 @@ export const useChatSessions = ({
       };
 
       upsertSessionState(session);
+      if (isStreaming || isLoading) {
+        return;
+      }
       scheduleSessionSave(session);
     }
   }, [
     chatService,
     currentSessionId,
     defaultSessionTitle,
+    isLoading,
+    isStreaming,
     messages,
     scheduleSessionSave,
     upsertSessionState,

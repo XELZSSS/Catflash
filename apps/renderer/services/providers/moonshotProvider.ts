@@ -2,12 +2,13 @@ import OpenAI from 'openai';
 import { ProviderId } from '../../types';
 import { MOONSHOT_MODEL_CATALOG } from './models';
 import { OpenAIStandardProviderBase } from './openaiStandardProviderBase';
+import { buildProxyUrl, getProxyAuthHeadersForTarget } from './proxy';
 import { ProviderChat, ProviderDefinition } from './types';
 import { sanitizeApiKey } from './utils';
 
 export const MOONSHOT_PROVIDER_ID: ProviderId = 'moonshot';
-export const MOONSHOT_BASE_URL_CN = 'http://localhost:4010/proxy/moonshot-cn';
-export const MOONSHOT_BASE_URL_INTL = 'http://localhost:4010/proxy/moonshot-intl';
+export const MOONSHOT_BASE_URL_CN = buildProxyUrl('/proxy/moonshot-cn');
+export const MOONSHOT_BASE_URL_INTL = buildProxyUrl('/proxy/moonshot-intl');
 
 const FALLBACK_MOONSHOT_MODEL = 'kimi-latest';
 const MOONSHOT_MODEL_FROM_ENV = process.env.MOONSHOT_MODEL;
@@ -63,6 +64,9 @@ class MoonshotProvider extends OpenAIStandardProviderBase implements ProviderCha
       apiKey,
       baseURL: this.baseUrl,
       dangerouslyAllowBrowser: true,
+      defaultHeaders: {
+        ...getProxyAuthHeadersForTarget(this.baseUrl),
+      },
     });
   }
 

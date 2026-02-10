@@ -4,6 +4,7 @@ type UseVirtualListOptions<T> = {
   items: T[];
   containerRef: RefObject<HTMLElement | null>;
   estimateSize: (item: T, index: number) => number;
+  getItemKey?: (item: T, index: number) => string;
   overscan?: number;
 };
 
@@ -17,31 +18,36 @@ export const useVirtualList = <T>({
   items,
   containerRef,
   estimateSize,
+  getItemKey,
   overscan = 6,
 }: UseVirtualListOptions<T>) => {
-  const [sizes, setSizes] = useState<number[]>([]);
+  const [measuredSizes, setMeasuredSizes] = useState<Record<string, number>>({});
   const [viewportHeight, setViewportHeight] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
   const frameRef = useRef<number | null>(null);
   const metricsRef = useRef({ scrollTop: 0, viewportHeight: 0 });
 
-  useEffect(() => {
-    setSizes((prev) => {
-      const next = items.map((item, index) => prev[index] ?? estimateSize(item, index));
-      if (prev.length === next.length && prev.every((size, index) => size === next[index])) {
-        return prev;
-      }
-      return next;
-    });
-  }, [estimateSize, items]);
+  const resolveItemKey = useCallback(
+    (item: T, index: number): string => {
+      if (getItemKey) return getItemKey(item, index);
+      return String(index);
+    },
+    [getItemKey]
+  );
+
+  const itemKeys = useMemo(
+    () => items.map((item, index) => resolveItemKey(item, index)),
+    [items, resolveItemKey]
+  );
 
   const offsets = useMemo(() => {
     const result = new Array(items.length + 1).fill(0);
     for (let i = 0; i < items.length; i += 1) {
-      result[i + 1] = result[i] + (sizes[i] ?? 0);
+      const itemKey = itemKeys[i] ?? String(i);
+      result[i + 1] = result[i] + (measuredSizes[itemKey] ?? estimateSize(items[i], i));
     }
     return result;
-  }, [items, sizes]);
+  }, [estimateSize, itemKeys, items, measuredSizes]);
 
   const totalHeight = offsets[offsets.length - 1] ?? 0;
 
@@ -123,17 +129,22 @@ export const useVirtualList = <T>({
   const bottomSpacerHeight =
     totalHeight - (offsets[Math.min(items.length, endIndex + 1)] ?? totalHeight);
 
-  const measureItem = useCallback((index: number, node: HTMLElement | null) => {
-    if (!node) return;
-    const measured = node.offsetHeight;
-    if (!measured) return;
-    setSizes((prev) => {
-      if (prev[index] === measured) return prev;
-      const next = [...prev];
-      next[index] = measured;
-      return next;
-    });
-  }, []);
+  const measureItem = useCallback(
+    (index: number, node: HTMLElement | null) => {
+      if (!node) return;
+      const measured = node.offsetHeight;
+      if (!measured) return;
+      const itemKey = itemKeys[index];
+      if (!itemKey) return;
+      setMeasuredSizes((prev) => {
+        if (prev[itemKey] === measured) return prev;
+        const next = { ...prev };
+        next[itemKey] = measured;
+        return next;
+      });
+    },
+    [itemKeys]
+  );
 
   return {
     visibleItems,

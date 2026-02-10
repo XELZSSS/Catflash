@@ -75,6 +75,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
     items: filteredSessions,
     containerRef: listContainerRef,
     estimateSize: estimateItemSize,
+    getItemKey: (session) => session.id,
     overscan: 10,
   });
 

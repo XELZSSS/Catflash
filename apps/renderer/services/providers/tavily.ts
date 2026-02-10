@@ -1,5 +1,6 @@
 import type OpenAI from 'openai';
 import { TavilyConfig } from '../../types';
+import { buildProxyUrl, getProxyAuthHeadersForTarget } from './proxy';
 import { sanitizeApiKey } from './utils';
 
 export const normalizeTavilyConfig = (value?: TavilyConfig): TavilyConfig | undefined => {
@@ -101,11 +102,13 @@ export const callTavilySearch = async (
     include_answer: args.include_answer ?? tavilyConfig.includeAnswer ?? true,
   };
 
-  const response = await fetch('http://localhost:4010/proxy/tavily/search', {
+  const proxyUrl = buildProxyUrl('/proxy/tavily/search');
+  const response = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${tavilyConfig.apiKey}`,
+      ...getProxyAuthHeadersForTarget(proxyUrl),
       ...(tavilyConfig.projectId ? { 'X-Project-ID': tavilyConfig.projectId } : {}),
     },
     body: JSON.stringify(payload),

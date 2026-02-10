@@ -3,6 +3,7 @@ import { ProviderId, TavilyConfig } from '../../types';
 import { OpenAIChatCreateStreaming, OpenAIStreamChunk, runToolCallLoop } from './openaiChatHelpers';
 import { MINIMAX_MODEL_CATALOG } from './models';
 import { OpenAIStandardProviderBase } from './openaiStandardProviderBase';
+import { buildProxyUrl, getProxyAuthHeadersForTarget } from './proxy';
 import { buildOpenAITavilyTools } from './tavily';
 import {
   ImageGenerationConfig,
@@ -14,8 +15,8 @@ import {
 import { sanitizeApiKey } from './utils';
 
 export const MINIMAX_PROVIDER_ID: ProviderId = 'minimax';
-export const DEFAULT_MINIMAX_BASE_URL = 'http://localhost:4010/proxy/minimax-intl';
-export const CHINA_MINIMAX_BASE_URL = 'http://localhost:4010/proxy/minimax-cn';
+export const DEFAULT_MINIMAX_BASE_URL = buildProxyUrl('/proxy/minimax-intl');
+export const CHINA_MINIMAX_BASE_URL = buildProxyUrl('/proxy/minimax-cn');
 
 const resolveBaseUrl = (value: string): string => {
   if (value.startsWith('http://') || value.startsWith('https://')) {
@@ -78,6 +79,9 @@ class MiniMaxProvider extends OpenAIStandardProviderBase implements ProviderChat
       apiKey,
       baseURL: this.baseUrl,
       dangerouslyAllowBrowser: true,
+      defaultHeaders: {
+        ...getProxyAuthHeadersForTarget(this.baseUrl),
+      },
     });
   }
 
@@ -115,6 +119,7 @@ class MiniMaxProvider extends OpenAIStandardProviderBase implements ProviderChat
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
+        ...getProxyAuthHeadersForTarget(this.baseUrl),
       },
       body: JSON.stringify({
         model: resolveMinimaxImageModel(this.modelName),
