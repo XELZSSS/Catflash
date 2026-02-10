@@ -9,6 +9,7 @@ declare global {
       isMaximized: () => Promise<boolean>;
       getProxyToken: () => string | undefined;
       getProxyPort: () => string;
+      getProxyHost: () => string;
       onMaximizeChanged: (callback: (isMaximized: boolean) => void) => () => void;
       setTrayLanguage: (language: 'en' | 'zh-CN') => Promise<void>;
       setTrayLabels: (labels: {

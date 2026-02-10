@@ -2,9 +2,11 @@
 import express from 'express';
 import cors from 'cors';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import proxyConfig from '../shared/proxy-config.cjs';
 
-const PORT = Number(process.env.MINIMAX_PROXY_PORT ?? 4010);
-const HOST = process.env.MINIMAX_PROXY_HOST ?? '127.0.0.1';
+const { resolveProxyPort, resolveProxyHost } = proxyConfig;
+const PORT = Number(resolveProxyPort(process.env.MINIMAX_PROXY_PORT));
+const HOST = resolveProxyHost(process.env.MINIMAX_PROXY_HOST);
 const AUTH_HEADER = 'x-catflash-proxy-token';
 const PROXY_AUTH_TOKEN = (process.env.CATFLASH_PROXY_TOKEN ?? '').trim();
 const proxyAuthEnabled = PROXY_AUTH_TOKEN.length > 0;

@@ -1,4 +1,4 @@
-import { GoogleGenAI, Chat, Content, GenerateContentResponse, Part, Type } from '@google/genai';
+import type { Chat, Content, GenerateContentResponse, GoogleGenAI, Part } from '@google/genai';
 import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
 import {
   ImageGenerationConfig,
@@ -16,6 +16,27 @@ import { TavilyToolArgs } from './openaiChatHelpers';
 export const GEMINI_PROVIDER_ID: ProviderId = 'gemini';
 export const GEMINI_MODEL_NAME = 'gemini-2.5-flash';
 const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
+const GEMINI_SCHEMA_TYPE = {
+  OBJECT: 'OBJECT',
+  STRING: 'STRING',
+  INTEGER: 'INTEGER',
+  BOOLEAN: 'BOOLEAN',
+} as const;
+
+let googleGenAIConstructorPromise: Promise<
+  new (options: { apiKey: string }) => GoogleGenAI
+> | null = null;
+
+const loadGoogleGenAIConstructor = async (): Promise<
+  new (options: { apiKey: string }) => GoogleGenAI
+> => {
+  if (!googleGenAIConstructorPromise) {
+    googleGenAIConstructorPromise = import('@google/genai').then(
+      (module) => module.GoogleGenAI as new (options: { apiKey: string }) => GoogleGenAI
+    );
+  }
+  return googleGenAIConstructorPromise;
+};
 
 const DEFAULT_GEMINI_API_KEY = sanitizeApiKey(process.env.GEMINI_API_KEY ?? process.env.API_KEY);
 class GeminiProvider implements ProviderChat {
@@ -33,23 +54,22 @@ class GeminiProvider implements ProviderChat {
     this.modelName = GEMINI_MODEL_NAME;
     this.apiKey = DEFAULT_GEMINI_API_KEY;
     this.tavilyConfig = getDefaultTavilyConfig();
-    if (this.apiKey) {
-      this.resetChat();
-    }
   }
 
-  private getClient(): GoogleGenAI {
+  private async getClient(): Promise<GoogleGenAI> {
     if (!this.apiKey) {
       throw new Error('Missing Gemini API key');
     }
     if (!this.client) {
-      this.client = new GoogleGenAI({ apiKey: this.apiKey });
+      const GoogleGenAIConstructor = await loadGoogleGenAIConstructor();
+      this.client = new GoogleGenAIConstructor({ apiKey: this.apiKey });
     }
     return this.client;
   }
 
-  private createChat(history: Content[] = []): Chat {
-    return this.getClient().chats.create({
+  private async createChat(history: Content[] = []): Promise<Chat> {
+    const client = await this.getClient();
+    return client.chats.create({
       model: this.modelName,
       history,
       config: {
@@ -77,26 +97,29 @@ class GeminiProvider implements ProviderChat {
             description:
               'Search the web for up-to-date information and return a concise summary with sources.',
             parameters: {
-              type: Type.OBJECT,
+              type: GEMINI_SCHEMA_TYPE.OBJECT,
               properties: {
-                query: { type: Type.STRING, description: 'Search query' },
+                query: { type: GEMINI_SCHEMA_TYPE.STRING, description: 'Search query' },
                 search_depth: {
-                  type: Type.STRING,
+                  type: GEMINI_SCHEMA_TYPE.STRING,
                   enum: ['basic', 'advanced', 'fast', 'ultra-fast'],
                   description: 'Search depth',
                 },
                 max_results: {
-                  type: Type.INTEGER,
+                  type: GEMINI_SCHEMA_TYPE.INTEGER,
                   minimum: 1,
                   maximum: 20,
                   description: 'Number of results to return',
                 },
                 topic: {
-                  type: Type.STRING,
+                  type: GEMINI_SCHEMA_TYPE.STRING,
                   enum: ['general', 'news', 'finance'],
                   description: 'Search topic',
                 },
-                include_answer: { type: Type.BOOLEAN, description: 'Include answer summary' },
+                include_answer: {
+                  type: GEMINI_SCHEMA_TYPE.BOOLEAN,
+                  description: 'Include answer summary',
+                },
               },
               required: ['query'],
             },
@@ -106,12 +129,12 @@ class GeminiProvider implements ProviderChat {
     ];
   }
 
-  private ensureChat(): Chat {
+  private async ensureChat(): Promise<Chat> {
     if (!this.apiKey) {
       throw new Error('Missing Gemini API key');
     }
     if (!this.chat) {
-      this.chat = this.createChat();
+      this.chat = await this.createChat();
     }
     return this.chat;
   }
@@ -177,7 +200,8 @@ class GeminiProvider implements ProviderChat {
     if (request.aspectRatio) {
       config.imageConfig = { aspectRatio: request.aspectRatio };
     }
-    const response = await this.getClient().models.generateContent({
+    const client = await this.getClient();
+    const response = await client.models.generateContent({
       model: imageModel,
       contents: [{ role: 'user', parts: [{ text: promptWithReference }] }],
       config: config as never,
@@ -197,11 +221,7 @@ class GeminiProvider implements ProviderChat {
   }
 
   resetChat(): void {
-    if (!this.apiKey) {
-      this.chat = null;
-      return;
-    }
-    this.chat = this.createChat();
+    this.chat = null;
     this.history = [];
   }
 
@@ -211,7 +231,7 @@ class GeminiProvider implements ProviderChat {
     }
     this.history = messages.filter((msg) => !msg.isError);
     const history = this.buildContents(this.history);
-    this.chat = this.createChat(history);
+    this.chat = await this.createChat(history);
   }
 
   async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {
@@ -224,7 +244,7 @@ class GeminiProvider implements ProviderChat {
         timestamp: Date.now(),
       };
       if (!this.tavilyConfig?.apiKey) {
-        const chat = this.ensureChat();
+        const chat = await this.ensureChat();
         const result = await chat.sendMessageStream({ message });
 
         for await (const chunk of result) {
@@ -248,7 +268,8 @@ class GeminiProvider implements ProviderChat {
 
       const contents = this.buildContents([...this.history, userMessage]);
       const tools = this.buildTools();
-      const response = await this.getClient().models.generateContent({
+      const client = await this.getClient();
+      const response = await client.models.generateContent({
         model: this.modelName,
         contents,
         config: {
@@ -271,7 +292,7 @@ class GeminiProvider implements ProviderChat {
           this.history = [...this.history, userMessage, modelMessage];
           return;
         }
-        const chat = this.ensureChat();
+        const chat = await this.ensureChat();
         const result = await chat.sendMessageStream({ message });
         for await (const chunk of result) {
           const c = chunk as GenerateContentResponse;
@@ -336,7 +357,7 @@ class GeminiProvider implements ProviderChat {
         { role: 'user', parts: toolParts },
       ];
 
-      const stream = await this.getClient().models.generateContentStream({
+      const stream = await client.models.generateContentStream({
         model: this.modelName,
         contents: followupContents,
         config: {
