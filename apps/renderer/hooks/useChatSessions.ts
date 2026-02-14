@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, FormEvent, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatService } from '../services/chatService';
-import { ChatMessage, ChatSession, ProviderId, Role } from '../types';
-import { ProviderSettingsMap } from '../services/settingsTypes';
+import { ChatMessage, ChatSession, Role } from '../types';
 import {
   clearActiveSessionId,
   deleteSession,
@@ -21,10 +20,7 @@ type UseChatSessionsOptions = {
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
   defaultSessionTitle: string;
   scrollToBottom: (behavior?: ScrollBehavior, force?: boolean) => void;
-  setProviderSettings: Dispatch<SetStateAction<ProviderSettingsMap>>;
-  setCurrentProviderId: Dispatch<SetStateAction<ProviderId>>;
-  setCurrentModelName: Dispatch<SetStateAction<string>>;
-  setCurrentApiKey: Dispatch<SetStateAction<string>>;
+  syncProviderState: () => void;
   isStreaming: boolean;
   isLoading: boolean;
   onCloseSidebar?: () => void;
@@ -36,10 +32,7 @@ export const useChatSessions = ({
   setMessages,
   defaultSessionTitle,
   scrollToBottom,
-  setProviderSettings,
-  setCurrentProviderId,
-  setCurrentModelName,
-  setCurrentApiKey,
+  syncProviderState,
   isStreaming,
   isLoading,
   onCloseSidebar,
@@ -62,23 +55,13 @@ export const useChatSessions = ({
 
       chatService.setProvider(session.provider);
       chatService.setModelName(session.model);
-      setProviderSettings(chatService.getAllProviderSettings());
-      setCurrentProviderId(session.provider);
-      setCurrentModelName(session.model);
-      setCurrentApiKey(chatService.getApiKey() ?? '');
+      syncProviderState();
 
       void chatService.startChatWithHistory(session.messages).catch((error) => {
         console.error('Failed to sync session history:', error);
       });
     },
-    [
-      chatService,
-      setCurrentApiKey,
-      setCurrentModelName,
-      setCurrentProviderId,
-      setMessages,
-      setProviderSettings,
-    ]
+    [chatService, setMessages, syncProviderState]
   );
 
   useEffect(() => {
@@ -241,19 +224,24 @@ export const useChatSessions = ({
     setEditTitleInput('');
   }, []);
 
+  const commitTitleEdit = useCallback(() => {
+    const nextTitle = editTitleInput.trim();
+    if (!editingSessionId || !nextTitle) {
+      return;
+    }
+    const updated = updateSessionTitle(editingSessionId, nextTitle);
+    setSessions(updated);
+    setEditingSessionId(null);
+    setEditTitleInput('');
+  }, [editTitleInput, editingSessionId]);
+
   const handleSaveEdit = useCallback(
     (e: FormEvent | MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-
-      if (editingSessionId && editTitleInput.trim()) {
-        const updated = updateSessionTitle(editingSessionId, editTitleInput.trim());
-        setSessions(updated);
-        setEditingSessionId(null);
-        setEditTitleInput('');
-      }
+      commitTitleEdit();
     },
-    [editTitleInput, editingSessionId]
+    [commitTitleEdit]
   );
 
   const handleEditInputClick = useCallback((e: MouseEvent) => {
@@ -265,17 +253,12 @@ export const useChatSessions = ({
       if (e.key === 'Enter') {
         e.preventDefault();
         e.stopPropagation();
-        if (editingSessionId && editTitleInput.trim()) {
-          const updated = updateSessionTitle(editingSessionId, editTitleInput.trim());
-          setSessions(updated);
-          setEditingSessionId(null);
-          setEditTitleInput('');
-        }
+        commitTitleEdit();
       } else if (e.key === 'Escape') {
         setEditingSessionId(null);
       }
     },
-    [editTitleInput, editingSessionId]
+    [commitTitleEdit]
   );
 
   const filteredSessions = useMemo(() => {

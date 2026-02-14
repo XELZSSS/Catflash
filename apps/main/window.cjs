@@ -33,7 +33,9 @@ const scheduleWindowStateSave = (win) => {
         height: bounds.height,
         isMaximized: win.isMaximized(),
       };
-      fs.writeFileSync(WINDOW_STATE_FILE, JSON.stringify(state));
+      void fs.promises.writeFile(WINDOW_STATE_FILE, JSON.stringify(state)).catch(() => {
+        // ignore persistence errors
+      });
     } catch {
       // ignore destroyed window or persistence errors
     }

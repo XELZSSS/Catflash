@@ -1,6 +1,5 @@
 import type { ObsidianReadMode, ObsidianSettings, ObsidianWriteMode } from '../types';
-
-const OBSIDIAN_SETTINGS_KEY = 'gemini_chat_obsidian_settings';
+import { readAppStorage, writeAppStorage } from '../services/storageKeys';
 
 export const DEFAULT_OBSIDIAN_READ_MODE: ObsidianReadMode = 'selected';
 export const DEFAULT_OBSIDIAN_WRITE_MODE: ObsidianWriteMode = 'insert-heading';
@@ -40,7 +39,7 @@ export const loadObsidianSettings = (): ObsidianSettings => {
     return DEFAULT_OBSIDIAN_SETTINGS;
   }
   try {
-    const stored = window.localStorage.getItem(OBSIDIAN_SETTINGS_KEY);
+    const stored = readAppStorage('obsidianSettings');
     if (!stored) return DEFAULT_OBSIDIAN_SETTINGS;
     const parsed = JSON.parse(stored) as Partial<ObsidianSettings>;
     return normalizeSettings(parsed);
@@ -53,7 +52,7 @@ export const loadObsidianSettings = (): ObsidianSettings => {
 export const saveObsidianSettings = (settings: ObsidianSettings): void => {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(OBSIDIAN_SETTINGS_KEY, JSON.stringify(settings));
+    writeAppStorage('obsidianSettings', JSON.stringify(settings));
   } catch (error) {
     console.warn('Failed to persist Obsidian settings:', error);
   }

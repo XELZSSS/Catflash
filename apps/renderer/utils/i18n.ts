@@ -1,10 +1,10 @@
 import { EN_TRANSLATIONS } from './i18n-locales/en';
 import { ZH_CN_TRANSLATIONS } from './i18n-locales/zh-CN';
+import { readAppStorage, writeAppStorage } from '../services/storageKeys';
 
 export type Language = 'en' | 'zh-CN';
 
 const DEFAULT_LANGUAGE: Language = 'en';
-const LANGUAGE_STORAGE_KEY = 'gemini_chat_language';
 
 const getSystemLanguage = (): Language => {
   if (typeof navigator === 'undefined') return DEFAULT_LANGUAGE;
@@ -13,8 +13,7 @@ const getSystemLanguage = (): Language => {
 };
 
 const getStoredLanguage = (): Language | null => {
-  if (typeof window === 'undefined') return null;
-  const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  const stored = readAppStorage('language');
   return stored === 'en' || stored === 'zh-CN' ? stored : null;
 };
 
@@ -30,9 +29,7 @@ export const applyLanguageToDocument = (): void => {
 
 export const setLanguage = (language: Language): void => {
   currentLanguage = language;
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
-  }
+  writeAppStorage('language', language);
   applyLanguageToDocument();
 };
 

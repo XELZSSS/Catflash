@@ -2,9 +2,7 @@ import { ProviderId } from '../types';
 import { buildDefaultProviderSettings, ProviderSettings } from './providers/defaults';
 import { getProviderDefaultModel, listProviderIds } from './providers/registry';
 import { normalizeTavilyConfig } from './providers/tavily';
-
-const PROVIDER_SETTINGS_KEY = 'gemini_chat_provider_settings';
-const ACTIVE_PROVIDER_KEY = 'gemini_chat_active_provider';
+import { readAppStorage, writeAppStorage } from './storageKeys';
 
 const sanitizeApiKey = (value?: string): string | undefined => {
   if (!value || value === 'undefined') return undefined;
@@ -87,7 +85,7 @@ export const loadActiveProviderId = (): ProviderId => {
     return available[0] ?? 'gemini';
   }
   try {
-    const stored = window.localStorage.getItem(ACTIVE_PROVIDER_KEY) as ProviderId | null;
+    const stored = readAppStorage('activeProvider') as ProviderId | null;
     if (stored && available.includes(stored)) {
       return stored;
     }
@@ -100,7 +98,7 @@ export const loadActiveProviderId = (): ProviderId => {
 export const persistActiveProviderId = (providerId: ProviderId): void => {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(ACTIVE_PROVIDER_KEY, providerId);
+    writeAppStorage('activeProvider', providerId);
   } catch (error) {
     console.error('Failed to persist active provider:', error);
   }
@@ -114,7 +112,7 @@ export const loadProviderSettings = (): Record<ProviderId, ProviderSettings> => 
   }
 
   try {
-    const stored = window.localStorage.getItem(PROVIDER_SETTINGS_KEY);
+    const stored = readAppStorage('providerSettings');
     if (!stored) {
       const globalTavily = resolveGlobalTavilyConfig(defaults);
       return applyGlobalTavilyConfig(defaults, globalTavily);
@@ -149,7 +147,7 @@ export const loadProviderSettings = (): Record<ProviderId, ProviderSettings> => 
 export const persistProviderSettings = (settings: Record<ProviderId, ProviderSettings>): void => {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(PROVIDER_SETTINGS_KEY, JSON.stringify(settings));
+    writeAppStorage('providerSettings', JSON.stringify(settings));
   } catch (error) {
     console.error('Failed to persist provider settings:', error);
   }

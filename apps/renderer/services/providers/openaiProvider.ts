@@ -16,6 +16,7 @@ import {
   runToolCallLoop,
   streamStandardChatCompletions,
 } from './openaiChatHelpers';
+import { parseImageGenerationResponse } from './imageResponse';
 import { sanitizeApiKey } from './utils';
 
 export const OPENAI_PROVIDER_ID: ProviderId = 'openai';
@@ -158,16 +159,7 @@ class OpenAIProvider extends OpenAIStyleProviderBase implements ProviderChat {
     const response = (await client.images.generate(payload as never)) as unknown as {
       data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
     };
-
-    const first = response.data?.[0];
-    if (!first) {
-      throw new Error('OpenAI image generation returned no image.');
-    }
-    return {
-      imageUrl: first.url,
-      imageDataUrl: first.b64_json ? `data:image/png;base64,${first.b64_json}` : undefined,
-      revisedPrompt: first.revised_prompt,
-    };
+    return parseImageGenerationResponse(response, 'OpenAI image generation returned no image.');
   }
 
   async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {

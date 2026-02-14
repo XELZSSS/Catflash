@@ -1,4 +1,13 @@
-import type { Chat, Content, GenerateContentResponse, GoogleGenAI, Part } from '@google/genai';
+import type {
+  Chat,
+  Content,
+  FunctionDeclaration,
+  GenerateContentResponse,
+  GoogleGenAI,
+  Part,
+  Type,
+  ToolListUnion,
+} from '@google/genai';
 import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
 import {
   ImageGenerationConfig,
@@ -17,10 +26,10 @@ export const GEMINI_PROVIDER_ID: ProviderId = 'gemini';
 export const GEMINI_MODEL_NAME = 'gemini-2.5-flash';
 const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
 const GEMINI_SCHEMA_TYPE = {
-  OBJECT: 'OBJECT',
-  STRING: 'STRING',
-  INTEGER: 'INTEGER',
-  BOOLEAN: 'BOOLEAN',
+  OBJECT: 'OBJECT' as Type,
+  STRING: 'STRING' as Type,
+  INTEGER: 'INTEGER' as Type,
+  BOOLEAN: 'BOOLEAN' as Type,
 } as const;
 
 let googleGenAIConstructorPromise: Promise<
@@ -87,44 +96,45 @@ class GeminiProvider implements ProviderChat {
       }));
   }
 
-  private buildTools() {
+  private buildTools(): ToolListUnion | undefined {
     if (!this.tavilyConfig?.apiKey) return undefined;
+
+    const tavilySearchDeclaration: FunctionDeclaration = {
+      name: 'tavily_search',
+      description:
+        'Search the web for up-to-date information and return a concise summary with sources.',
+      parameters: {
+        type: GEMINI_SCHEMA_TYPE.OBJECT,
+        properties: {
+          query: { type: GEMINI_SCHEMA_TYPE.STRING, description: 'Search query' },
+          search_depth: {
+            type: GEMINI_SCHEMA_TYPE.STRING,
+            enum: ['basic', 'advanced', 'fast', 'ultra-fast'],
+            description: 'Search depth',
+          },
+          max_results: {
+            type: GEMINI_SCHEMA_TYPE.INTEGER,
+            minimum: 1,
+            maximum: 20,
+            description: 'Number of results to return',
+          },
+          topic: {
+            type: GEMINI_SCHEMA_TYPE.STRING,
+            enum: ['general', 'news', 'finance'],
+            description: 'Search topic',
+          },
+          include_answer: {
+            type: GEMINI_SCHEMA_TYPE.BOOLEAN,
+            description: 'Include answer summary',
+          },
+        },
+        required: ['query'],
+      },
+    };
+
     return [
       {
-        functionDeclarations: [
-          {
-            name: 'tavily_search',
-            description:
-              'Search the web for up-to-date information and return a concise summary with sources.',
-            parameters: {
-              type: GEMINI_SCHEMA_TYPE.OBJECT,
-              properties: {
-                query: { type: GEMINI_SCHEMA_TYPE.STRING, description: 'Search query' },
-                search_depth: {
-                  type: GEMINI_SCHEMA_TYPE.STRING,
-                  enum: ['basic', 'advanced', 'fast', 'ultra-fast'],
-                  description: 'Search depth',
-                },
-                max_results: {
-                  type: GEMINI_SCHEMA_TYPE.INTEGER,
-                  minimum: 1,
-                  maximum: 20,
-                  description: 'Number of results to return',
-                },
-                topic: {
-                  type: GEMINI_SCHEMA_TYPE.STRING,
-                  enum: ['general', 'news', 'finance'],
-                  description: 'Search topic',
-                },
-                include_answer: {
-                  type: GEMINI_SCHEMA_TYPE.BOOLEAN,
-                  description: 'Include answer summary',
-                },
-              },
-              required: ['query'],
-            },
-          },
-        ],
+        functionDeclarations: [tavilySearchDeclaration],
       },
     ];
   }
@@ -335,7 +345,13 @@ class GeminiProvider implements ProviderChat {
           continue;
         }
         try {
-          const result = await callTavilySearch(this.tavilyConfig, args);
+          const result = await callTavilySearch(this.tavilyConfig, {
+            query: args.query,
+            search_depth: args.search_depth,
+            max_results: args.max_results,
+            topic: args.topic,
+            include_answer: args.include_answer,
+          });
           toolParts.push({
             functionResponse: { name: call.name, response: result as Record<string, unknown> },
           });

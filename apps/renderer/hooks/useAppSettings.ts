@@ -9,10 +9,7 @@ type UseAppSettingsOptions = {
   chatService: ChatService;
   providerSettings: ProviderSettingsMap;
   currentProviderId: ProviderId;
-  setProviderSettings: Dispatch<SetStateAction<ProviderSettingsMap>>;
-  setCurrentProviderId: Dispatch<SetStateAction<ProviderId>>;
-  setCurrentModelName: Dispatch<SetStateAction<string>>;
-  setCurrentApiKey: Dispatch<SetStateAction<string>>;
+  syncProviderState: () => void;
   setObsidianSettings: Dispatch<SetStateAction<ObsidianSettings>>;
   setLanguageState: Dispatch<SetStateAction<Language>>;
   startNewChat: () => void;
@@ -22,10 +19,7 @@ export const useAppSettings = ({
   chatService,
   providerSettings,
   currentProviderId,
-  setProviderSettings,
-  setCurrentProviderId,
-  setCurrentModelName,
-  setCurrentApiKey,
+  syncProviderState,
   setObsidianSettings,
   setLanguageState,
   startNewChat,
@@ -51,10 +45,7 @@ export const useAppSettings = ({
         tavily: value.tavily,
         imageGeneration: value.imageGeneration,
       });
-      setProviderSettings(chatService.getAllProviderSettings());
-      setCurrentProviderId(value.providerId);
-      setCurrentModelName(updatedSettings.modelName);
-      setCurrentApiKey(updatedSettings.apiKey ?? '');
+      syncProviderState();
       const prev = providerSettings[value.providerId];
       const shouldRestart =
         value.providerId !== currentProviderId ||
@@ -75,10 +66,7 @@ export const useAppSettings = ({
       chatService,
       currentProviderId,
       providerSettings,
-      setCurrentApiKey,
-      setCurrentModelName,
-      setCurrentProviderId,
-      setProviderSettings,
+      syncProviderState,
       startNewChat,
     ]
   );

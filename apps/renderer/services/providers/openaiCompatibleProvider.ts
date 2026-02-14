@@ -1,4 +1,5 @@
 import { ProviderId } from '../../types';
+import { getDefaultOpenAICompatibleBaseUrl, resolveBaseUrl } from './baseUrl';
 import { OPENAI_COMPATIBLE_MODEL_CATALOG } from './models';
 import { OpenAIProxyCompatibleProviderBase } from './openaiProxyCompatibleProviderBase';
 import { buildProxyUrl } from './proxy';
@@ -24,24 +25,6 @@ const OPENAI_COMPATIBLE_MODELS = Array.from(
 );
 
 const DEFAULT_OPENAI_COMPATIBLE_API_KEY = sanitizeApiKey(process.env.OPENAI_COMPATIBLE_API_KEY);
-
-const resolveBaseUrl = (value: string): string => {
-  if (value.startsWith('http://') || value.startsWith('https://')) {
-    return value;
-  }
-  if (typeof window !== 'undefined') {
-    return new URL(value, window.location.origin).toString();
-  }
-  return value;
-};
-
-export const getDefaultOpenAICompatibleBaseUrl = (): string | undefined => {
-  const envOverride = process.env.OPENAI_COMPATIBLE_BASE_URL;
-  if (envOverride && envOverride !== 'undefined') {
-    return resolveBaseUrl(envOverride);
-  }
-  return undefined;
-};
 
 class OpenAICompatibleProvider extends OpenAIProxyCompatibleProviderBase implements ProviderChat {
   constructor() {

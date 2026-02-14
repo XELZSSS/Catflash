@@ -2,7 +2,6 @@ import { useEffect, useMemo, useReducer } from 'react';
 import { getProviderDefaultModel, listProviderIds } from '../../services/providers/registry';
 import {
   DEFAULT_MAX_TOOL_CALL_ROUNDS,
-  TOOL_CALL_MAX_ROUNDS_STORAGE_KEY,
 } from '../../services/providers/utils';
 import { ProviderId, TavilyConfig } from '../../types';
 import { t } from '../../utils/i18n';
@@ -10,20 +9,16 @@ import { providerMeta, resolveBaseUrlForProvider } from './constants';
 import { ActiveSettingsTab, settingsModalReducer, SettingsModalState } from './reducer';
 import { ProviderSettingsMap } from './types';
 import { ImageGenerationConfig } from '../../services/providers/types';
-
-const ACTIVE_TAB_STORAGE_KEY = 'gemini_settings_active_tab';
+import { readAppStorage, writeAppStorage } from '../../services/storageKeys';
 
 const getStoredToolRounds = () => {
   if (typeof window === 'undefined') return String(DEFAULT_MAX_TOOL_CALL_ROUNDS);
-  return (
-    window.localStorage.getItem(TOOL_CALL_MAX_ROUNDS_STORAGE_KEY) ??
-    String(DEFAULT_MAX_TOOL_CALL_ROUNDS)
-  );
+  return readAppStorage('toolCallMaxRounds') ?? String(DEFAULT_MAX_TOOL_CALL_ROUNDS);
 };
 
 const getStoredActiveTab = (): ActiveSettingsTab => {
   if (typeof window === 'undefined') return 'provider';
-  const stored = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+  const stored = readAppStorage('settingsActiveTab');
   if (stored === 'provider' || stored === 'search' || stored === 'obsidian' || stored === 'image')
     return stored;
   return 'provider';
@@ -146,11 +141,7 @@ export const useSettingsForm = ({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, state.activeTab);
-    } catch (error) {
-      console.warn('Failed to persist settings tab:', error);
-    }
+    writeAppStorage('settingsActiveTab', state.activeTab);
   }, [state.activeTab]);
 
   useEffect(() => {

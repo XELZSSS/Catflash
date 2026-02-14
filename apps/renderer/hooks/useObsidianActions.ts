@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { ChatMessage, Role } from '../types';
+import { ChatMessage, ObsidianWriteMode, Role } from '../types';
 import { t } from '../utils/i18n';
 import { insertUnderHeading } from '../utils/obsidian';
 import { formatMessageTime } from '../utils/time';
@@ -11,6 +11,30 @@ type UseObsidianActionsOptions = {
   messages: ChatMessage[];
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
   handleSendMessage: (text: string, mode: 'chat' | 'image') => Promise<void>;
+};
+
+const buildReadPrompt = (notePath: string, content: string): string =>
+  `${t('obsidian.prompt.prefix')}: ${notePath}\n\n${content}`;
+
+const buildNextNoteContent = (
+  current: string,
+  reply: string,
+  writeMode: ObsidianWriteMode,
+  writeHeading: string
+): string => {
+  if (writeMode === 'replace') {
+    return `${reply}\n`;
+  }
+  if (writeMode === 'append') {
+    return `${current.trimEnd()}\n\n${reply}\n`;
+  }
+  return insertUnderHeading(current, writeHeading, reply);
+};
+
+const confirmWritePreview = (previewBeforeWrite: boolean, nextContent: string): boolean => {
+  if (!previewBeforeWrite) return true;
+  const preview = nextContent.length > 1200 ? `${nextContent.slice(0, 1200)}...` : nextContent;
+  return window.confirm(`${t('obsidian.confirm.write')}\n\n${preview}`);
 };
 
 export const useObsidianActions = ({
@@ -132,7 +156,7 @@ export const useObsidianActions = ({
           obsidianSettings.readMode === 'active'
             ? (await getActiveNote()).content
             : await (await fetchObsidianApi(`/vault/${encodeURIComponent(notePath)}`)).text();
-        const prompt = `${t('obsidian.prompt.prefix')}: ${notePath}\n\n${content}`;
+        const prompt = buildReadPrompt(notePath, content);
         await handleSendMessage(prompt, 'chat');
         return;
       }
@@ -151,7 +175,7 @@ export const useObsidianActions = ({
         return;
       }
       const content = await window.gero.obsidian.readNote(obsidianSettings.vaultPath, notePath);
-      const prompt = `${t('obsidian.prompt.prefix')}: ${notePath}\n\n${content}`;
+      const prompt = buildReadPrompt(notePath, content);
       await handleSendMessage(prompt, 'chat');
     } catch (error) {
       console.error('Failed to read Obsidian note:', error);
@@ -199,22 +223,14 @@ export const useObsidianActions = ({
           activeNote?.content ??
           (await (await fetchObsidianApi(`/vault/${encodeURIComponent(notePath)}`)).text());
         const trimmedReply = lastReply.trim();
-        let nextContent = current;
-        if (obsidianSettings.writeMode === 'replace') {
-          nextContent = `${trimmedReply}\n`;
-        } else if (obsidianSettings.writeMode === 'append') {
-          nextContent = `${current.trimEnd()}\n\n${trimmedReply}\n`;
-        } else {
-          nextContent = insertUnderHeading(current, obsidianSettings.writeHeading, trimmedReply);
-        }
-
-        if (obsidianSettings.previewBeforeWrite) {
-          const preview =
-            nextContent.length > 1200 ? `${nextContent.slice(0, 1200)}...` : nextContent;
-          const confirmed = window.confirm(`${t('obsidian.confirm.write')}\n\n${preview}`);
-          if (!confirmed) {
-            return;
-          }
+        const nextContent = buildNextNoteContent(
+          current,
+          trimmedReply,
+          obsidianSettings.writeMode,
+          obsidianSettings.writeHeading
+        );
+        if (!confirmWritePreview(obsidianSettings.previewBeforeWrite, nextContent)) {
+          return;
         }
 
         await fetchObsidianApi(`/vault/${encodeURIComponent(notePath)}`, {
@@ -241,22 +257,14 @@ export const useObsidianActions = ({
       }
       const current = await window.gero.obsidian.readNote(obsidianSettings.vaultPath, notePath);
       const trimmedReply = lastReply.trim();
-      let nextContent = current;
-      if (obsidianSettings.writeMode === 'replace') {
-        nextContent = `${trimmedReply}\n`;
-      } else if (obsidianSettings.writeMode === 'append') {
-        nextContent = `${current.trimEnd()}\n\n${trimmedReply}\n`;
-      } else {
-        nextContent = insertUnderHeading(current, obsidianSettings.writeHeading, trimmedReply);
-      }
-
-      if (obsidianSettings.previewBeforeWrite) {
-        const preview =
-          nextContent.length > 1200 ? `${nextContent.slice(0, 1200)}...` : nextContent;
-        const confirmed = window.confirm(`${t('obsidian.confirm.write')}\n\n${preview}`);
-        if (!confirmed) {
-          return;
-        }
+      const nextContent = buildNextNoteContent(
+        current,
+        trimmedReply,
+        obsidianSettings.writeMode,
+        obsidianSettings.writeHeading
+      );
+      if (!confirmWritePreview(obsidianSettings.previewBeforeWrite, nextContent)) {
+        return;
       }
 
       await window.gero.obsidian.writeNote(obsidianSettings.vaultPath, notePath, nextContent);

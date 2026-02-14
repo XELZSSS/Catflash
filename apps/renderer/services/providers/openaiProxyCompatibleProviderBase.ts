@@ -9,6 +9,7 @@ import {
 import { getProxyAuthHeadersForTarget } from './proxy';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
 import { ImageGenerationConfig, ImageGenerationRequest, ImageGenerationResult } from './types';
+import { parseImageGenerationResponse } from './imageResponse';
 import { sanitizeApiKey } from './utils';
 
 type OpenAIProxyCompatibleProviderBaseOptions = {
@@ -202,15 +203,7 @@ export abstract class OpenAIProxyCompatibleProviderBase extends OpenAIStyleProvi
     const response = (await client.images.generate(payload as never)) as unknown as {
       data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
     };
-    const first = response.data?.[0];
-    if (!first) {
-      throw new Error(`${this.logLabel} image generation returned no image.`);
-    }
-    return {
-      imageUrl: first.url,
-      imageDataUrl: first.b64_json ? `data:image/png;base64,${first.b64_json}` : undefined,
-      revisedPrompt: first.revised_prompt,
-    };
+    return parseImageGenerationResponse(response, `${this.logLabel} image generation returned no image.`);
   }
 
   async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {

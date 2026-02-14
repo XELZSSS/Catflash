@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MAX_TOOL_CALL_ROUNDS,
   MIN_TOOL_CALL_ROUNDS,
-  TOOL_CALL_MAX_ROUNDS_STORAGE_KEY,
 } from '../../services/providers/utils';
 import { ObsidianMode, ObsidianReadMode, ObsidianWriteMode, TavilyConfig } from '../../types';
 import { ActiveSettingsTab } from './reducer';
@@ -10,6 +9,7 @@ import { resolveBaseUrlForRegion } from './constants';
 import { useObsidianTools } from './useObsidianTools';
 import { useSettingsForm } from './useSettingsForm';
 import { ProviderSettingsMap, SaveObsidianPayload, SaveSettingsPayload } from './types';
+import { removeAppStorage, writeAppStorage } from '../../services/storageKeys';
 
 type UseSettingsControllerOptions = {
   isOpen: boolean;
@@ -32,15 +32,11 @@ const persistToolCallRounds = (value: string): void => {
     : Math.min(Math.max(parsed, MIN_TOOL_CALL_ROUNDS), MAX_TOOL_CALL_ROUNDS);
 
   if (typeof window === 'undefined') return;
-  try {
-    if (normalized === null) {
-      window.localStorage.removeItem(TOOL_CALL_MAX_ROUNDS_STORAGE_KEY);
-      return;
-    }
-    window.localStorage.setItem(TOOL_CALL_MAX_ROUNDS_STORAGE_KEY, String(normalized));
-  } catch (error) {
-    console.warn('Failed to persist tool call rounds:', error);
+  if (normalized === null) {
+    removeAppStorage('toolCallMaxRounds');
+    return;
   }
+  writeAppStorage('toolCallMaxRounds', String(normalized));
 };
 
 export const useSettingsController = ({
@@ -247,6 +243,7 @@ export const useSettingsController = ({
     portalContainer,
     providerOptions,
     activeMeta,
+    obsidianNotePathRef,
     handleSave,
     onTabChange: (id: ActiveSettingsTab) => dispatch({ type: 'patch', payload: { activeTab: id } }),
     providerActions,

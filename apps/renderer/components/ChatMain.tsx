@@ -93,7 +93,7 @@ const ChatMainComponent: React.FC<ChatMainProps> = ({
     },
     []
   );
-  const { visibleItems, topSpacerHeight, bottomSpacerHeight, measureItem } = useVirtualList({
+  const { visibleItems, topSpacerHeight, bottomSpacerHeight, measureItem } = useVirtualList<ChatMessage>({
     items: messages,
     containerRef: messagesContainerRef,
     estimateSize: estimateMessageSize,

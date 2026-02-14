@@ -16,14 +16,24 @@ export const useAppController = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [inputMode, setInputMode] = useState<'chat' | 'image'>('chat');
-  const [providerSettings, setProviderSettings] = useState(() =>
-    chatService.getAllProviderSettings()
-  );
-  const [currentProviderId, setCurrentProviderId] = useState(chatService.getProviderId());
-  const [currentModelName, setCurrentModelName] = useState(chatService.getModelName());
-  const [currentApiKey, setCurrentApiKey] = useState(chatService.getApiKey() ?? '');
+  const [providerState, setProviderState] = useState(() => ({
+    providerSettings: chatService.getAllProviderSettings(),
+    currentProviderId: chatService.getProviderId(),
+  }));
   const [language, setLanguageState] = useState<Language>(() => getLanguage());
   const [obsidianSettings, setObsidianSettings] = useState(loadObsidianSettings());
+
+  const syncProviderState = useCallback(() => {
+    setProviderState({
+      providerSettings: chatService.getAllProviderSettings(),
+      currentProviderId: chatService.getProviderId(),
+    });
+  }, []);
+
+  const { providerSettings, currentProviderId } = providerState;
+  const currentProviderSettings = providerSettings[currentProviderId];
+  const currentModelName = currentProviderSettings?.modelName ?? chatService.getModelName();
+  const currentApiKey = currentProviderSettings?.apiKey ?? '';
 
   const defaultSessionTitle = t('sidebar.newChat');
 
@@ -40,10 +50,7 @@ export const useAppController = () => {
     setMessages,
     defaultSessionTitle,
     scrollToBottom: streaming.scrollToBottom,
-    setProviderSettings,
-    setCurrentProviderId,
-    setCurrentModelName,
-    setCurrentApiKey,
+    syncProviderState,
     isStreaming: streaming.isStreaming,
     isLoading: streaming.isLoading,
     onCloseSidebar: () => setIsSidebarOpen(false),
@@ -111,15 +118,7 @@ export const useAppController = () => {
     setSearchEnabled((prev) => !prev);
   }, [setSearchEnabled]);
 
-  const isObsidianReadDisabled =
-    !obsidianAvailable ||
-    obsidianBusy ||
-    (obsidianSettings.mode === 'vault' && !obsidianSettings.vaultPath) ||
-    (obsidianSettings.readMode === 'selected' && !obsidianSettings.notePath) ||
-    streaming.isStreaming ||
-    streaming.isLoading;
-
-  const isObsidianWriteDisabled =
+  const isObsidianActionBlocked =
     !obsidianAvailable ||
     obsidianBusy ||
     (obsidianSettings.mode === 'vault' && !obsidianSettings.vaultPath) ||
@@ -132,10 +131,7 @@ export const useAppController = () => {
       chatService,
       providerSettings,
       currentProviderId,
-      setProviderSettings,
-      setCurrentProviderId,
-      setCurrentModelName,
-      setCurrentApiKey,
+      syncProviderState,
       setObsidianSettings,
       setLanguageState,
       startNewChat,
@@ -153,10 +149,10 @@ export const useAppController = () => {
       providerId: currentProviderId,
       modelName: currentModelName,
       apiKey: currentApiKey,
-      baseUrl: providerSettings[currentProviderId]?.baseUrl,
-      customHeaders: providerSettings[currentProviderId]?.customHeaders,
-      tavily: providerSettings[currentProviderId]?.tavily,
-      imageGeneration: providerSettings[currentProviderId]?.imageGeneration,
+      baseUrl: currentProviderSettings?.baseUrl,
+      customHeaders: currentProviderSettings?.customHeaders,
+      tavily: currentProviderSettings?.tavily,
+      imageGeneration: currentProviderSettings?.imageGeneration,
       obsidianSettings,
       onSave: handleSaveSettings,
       onSaveObsidian: handleSaveObsidian,
@@ -169,6 +165,7 @@ export const useAppController = () => {
       handleSaveSettings,
       isSettingsOpen,
       obsidianSettings,
+      currentProviderSettings,
       providerSettings,
     ]
   );
@@ -247,15 +244,14 @@ export const useAppController = () => {
       onToggleSearch: handleToggleSearch,
       onReadObsidian: obsidianAvailable ? handleReadObsidian : undefined,
       onWriteObsidian: obsidianAvailable ? handleWriteObsidian : undefined,
-      obsidianReadDisabled: isObsidianReadDisabled,
-      obsidianWriteDisabled: isObsidianWriteDisabled,
+      obsidianReadDisabled: isObsidianActionBlocked,
+      obsidianWriteDisabled: isObsidianActionBlocked,
     }),
     [
       handleReadObsidian,
       handleToggleSearch,
       handleWriteObsidian,
-      isObsidianReadDisabled,
-      isObsidianWriteDisabled,
+      isObsidianActionBlocked,
       messages,
       obsidianAvailable,
       searchEnabled,

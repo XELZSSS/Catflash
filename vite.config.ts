@@ -67,6 +67,10 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      target: 'es2022',
+      modulePreload: {
+        polyfill: false,
+      },
       outDir: path.resolve(__dirname, 'dist'),
       emptyOutDir: true,
       chunkSizeWarningLimit: 800,

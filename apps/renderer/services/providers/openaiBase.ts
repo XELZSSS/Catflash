@@ -69,7 +69,13 @@ export abstract class OpenAIStyleProviderBase {
           };
         }
         try {
-          const result = await callTavilySearch(tavilyConfig, args);
+          const result = await callTavilySearch(tavilyConfig, {
+            query: args.query,
+            search_depth: args.search_depth,
+            max_results: args.max_results,
+            topic: args.topic,
+            include_answer: args.include_answer,
+          });
           return {
             tool_call_id: call.id,
             content: JSON.stringify(result),

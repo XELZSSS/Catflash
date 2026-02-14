@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ChatService } from '../services/chatService';
-
-const SEARCH_ENABLED_KEY = 'gemini_chat_search_enabled';
+import { readAppStorage, writeAppStorage } from '../services/storageKeys';
 
 type UseSearchToggleOptions = {
   chatService: ChatService;
@@ -14,31 +13,20 @@ export const useSearchToggle = ({
   tavilyAvailable,
   currentProviderId,
 }: UseSearchToggleOptions) => {
-  const [searchEnabled, setSearchEnabled] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    try {
-      const stored = window.localStorage.getItem(SEARCH_ENABLED_KEY);
-      if (stored === 'true') return true;
-      if (stored === 'false') return false;
-    } catch (error) {
-      console.warn('Failed to load search toggle from storage:', error);
-    }
-    return true;
-  });
+  const [searchEnabled, setSearchEnabled] = useState(() => readAppStorage('searchEnabled') !== 'false');
 
   useEffect(() => {
     if (!tavilyAvailable) {
-      setSearchEnabled(false);
+      if (searchEnabled) {
+        setSearchEnabled(false);
+      }
       chatService.setSearchEnabled(false);
+      writeAppStorage('searchEnabled', 'false');
       return;
     }
     chatService.setSearchEnabled(searchEnabled);
-    try {
-      window.localStorage.setItem(SEARCH_ENABLED_KEY, String(searchEnabled));
-    } catch (error) {
-      console.warn('Failed to persist search toggle:', error);
-    }
-  }, [tavilyAvailable, searchEnabled, currentProviderId, chatService]);
+    writeAppStorage('searchEnabled', String(searchEnabled));
+  }, [chatService, currentProviderId, searchEnabled, tavilyAvailable]);
 
   return { searchEnabled, setSearchEnabled };
 };

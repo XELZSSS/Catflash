@@ -6,40 +6,16 @@ import {
   ProviderChat,
   ProviderDefinition,
 } from './types';
+import { getDefaultGlmBaseUrl, resolveBaseUrl } from './baseUrl';
+import { parseImageGenerationResponse } from './imageResponse';
 import { GLM_MODEL_CATALOG } from './models';
 import { getMaxToolCallRounds, sanitizeApiKey } from './utils';
-import { buildProxyUrl, getProxyAuthHeadersForTarget } from './proxy';
+import { getProxyAuthHeadersForTarget } from './proxy';
 import { buildOpenAITavilyTools, getDefaultTavilyConfig, normalizeTavilyConfig } from './tavily';
 import { OpenAIChatMessages, OpenAIStreamChunk } from './openaiChatHelpers';
 import { OpenAIStyleProviderBase } from './openaiBase';
 
 export const GLM_PROVIDER_ID: ProviderId = 'glm';
-export const GLM_BASE_URL_CN = buildProxyUrl('/proxy/glm-cn/chat/completions');
-export const GLM_BASE_URL_INTL = buildProxyUrl('/proxy/glm-intl/chat/completions');
-
-const resolveBaseUrl = (value: string): string => {
-  if (value.startsWith('http://') || value.startsWith('https://')) {
-    return value;
-  }
-  if (typeof window !== 'undefined') {
-    return new URL(value, window.location.origin).toString();
-  }
-  return value;
-};
-
-export const getDefaultGlmBaseUrl = (): string => {
-  const envOverride = process.env.GLM_BASE_URL;
-  if (envOverride && envOverride !== 'undefined') {
-    return resolveBaseUrl(envOverride);
-  }
-  if (typeof navigator !== 'undefined') {
-    const lang = navigator.language.toLowerCase();
-    if (lang.startsWith('zh')) {
-      return resolveBaseUrl(GLM_BASE_URL_CN);
-    }
-  }
-  return resolveBaseUrl(GLM_BASE_URL_INTL);
-};
 
 const FALLBACK_GLM_MODEL = 'glm-4.7';
 const GLM_MODEL_FROM_ENV = process.env.GLM_MODEL;
@@ -178,16 +154,7 @@ class GlmProvider extends OpenAIStyleProviderBase implements ProviderChat {
     const payload = (await response.json()) as {
       data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
     };
-    const first = payload.data?.[0];
-    if (!first) {
-      throw new Error('GLM image generation returned no image.');
-    }
-
-    return {
-      imageUrl: first.url,
-      imageDataUrl: first.b64_json ? `data:image/png;base64,${first.b64_json}` : undefined,
-      revisedPrompt: first.revised_prompt,
-    };
+    return parseImageGenerationResponse(payload, 'GLM image generation returned no image.');
   }
 
   async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {
@@ -199,18 +166,14 @@ class GlmProvider extends OpenAIStyleProviderBase implements ProviderChat {
     };
 
     const nextHistory = [...this.history, userMessage];
-    const messages = this.buildMessages(nextHistory, this.id, this.modelName);
+    const baseMessages = this.buildMessages(nextHistory, this.id, this.modelName);
 
     const tools = buildOpenAITavilyTools(this.tavilyConfig);
-    const payload = {
-      model: this.modelName,
-      messages,
-      tools,
-      tool_choice: tools ? 'auto' : undefined,
-    };
+    const toolChoice = tools ? 'auto' : undefined;
+    let messagesToSend = baseMessages as OpenAIChatMessages;
 
     if (tools) {
-      let workingMessages = messages as OpenAIChatMessages;
+      let workingMessages = messagesToSend;
       const maxToolRounds = getMaxToolCallRounds();
       for (let round = 0; round < maxToolRounds; round += 1) {
         const preflight = await fetch(this.baseUrl, {
@@ -220,7 +183,13 @@ class GlmProvider extends OpenAIStyleProviderBase implements ProviderChat {
             Authorization: `Bearer ${this.getApiKeyValue()}`,
             ...getProxyAuthHeadersForTarget(this.baseUrl),
           },
-          body: JSON.stringify({ ...payload, messages: workingMessages, stream: false }),
+          body: JSON.stringify({
+            model: this.modelName,
+            messages: workingMessages,
+            tools,
+            tool_choice: toolChoice,
+            stream: false,
+          }),
         });
 
         if (!preflight.ok) {
@@ -238,7 +207,7 @@ class GlmProvider extends OpenAIStyleProviderBase implements ProviderChat {
 
         const toolCalls = preflightData.choices?.[0]?.message?.tool_calls ?? [];
         if (!toolCalls.length) {
-          payload.messages = workingMessages;
+          messagesToSend = workingMessages;
           break;
         }
 
@@ -253,8 +222,7 @@ class GlmProvider extends OpenAIStyleProviderBase implements ProviderChat {
           },
           ...toolMessages,
         ];
-
-        payload.messages = workingMessages;
+        messagesToSend = workingMessages;
       }
     }
 
@@ -265,7 +233,13 @@ class GlmProvider extends OpenAIStyleProviderBase implements ProviderChat {
         Authorization: `Bearer ${this.getApiKeyValue()}`,
         ...getProxyAuthHeadersForTarget(this.baseUrl),
       },
-      body: JSON.stringify({ ...payload, stream: true }),
+      body: JSON.stringify({
+        model: this.modelName,
+        messages: messagesToSend,
+        tools,
+        tool_choice: toolChoice,
+        stream: true,
+      }),
     });
 
     if (!response.ok || !response.body) {

@@ -1,55 +1,43 @@
 import { ChatSession } from '../types';
-import { GEMINI_MODEL_NAME, GEMINI_PROVIDER_ID } from './providers/geminiProvider';
 import { formatMessageTime } from '../utils/time';
+import { AppStorageKey, readAppStorage, removeAppStorage, writeAppStorage } from './storageKeys';
 
-const STORAGE_KEY = 'gemini_chat_sessions';
-const ACTIVE_SESSION_KEY = 'gemini_chat_active_session_id';
+const DEFAULT_PROVIDER_ID = 'gemini' as const;
+const DEFAULT_MODEL_NAME = 'gemini-2.5-flash';
+
+const SESSIONS_STORAGE_KEY: AppStorageKey = 'sessions';
+const ACTIVE_SESSION_STORAGE_KEY: AppStorageKey = 'activeSessionId';
 
 type StoredSession = Partial<ChatSession> &
   Pick<ChatSession, 'id' | 'title' | 'createdAt' | 'updatedAt'>;
 
-const memoryStore = new Map<string, string>();
+const memoryStore = new Map<AppStorageKey, string>();
 let sessionsCache: ChatSession[] | null = null;
 
-const getStorage = (): Storage | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage;
-  } catch (error) {
-    console.error('Failed to access localStorage:', error);
-    return null;
+const storageGetItem = (key: AppStorageKey): string | null => {
+  const storageValue = readAppStorage(key);
+  if (storageValue !== null) {
+    memoryStore.set(key, storageValue);
+    return storageValue;
   }
-};
-
-const storageGetItem = (key: string): string | null => {
-  const storage = getStorage();
-  if (storage) return storage.getItem(key);
   return memoryStore.get(key) ?? null;
 };
 
-const storageSetItem = (key: string, value: string): void => {
-  const storage = getStorage();
-  if (storage) {
-    storage.setItem(key, value);
-  } else {
-    memoryStore.set(key, value);
-  }
+const storageSetItem = (key: AppStorageKey, value: string): void => {
+  writeAppStorage(key, value);
+  memoryStore.set(key, value);
 };
 
-const storageRemoveItem = (key: string): void => {
-  const storage = getStorage();
-  if (storage) {
-    storage.removeItem(key);
-  } else {
-    memoryStore.delete(key);
-  }
+const storageRemoveItem = (key: AppStorageKey): void => {
+  removeAppStorage(key);
+  memoryStore.delete(key);
 };
 
 const normalizeSession = (session: StoredSession): ChatSession => {
   return {
     ...session,
-    provider: session.provider ?? GEMINI_PROVIDER_ID,
-    model: session.model ?? GEMINI_MODEL_NAME,
+    provider: session.provider ?? DEFAULT_PROVIDER_ID,
+    model: session.model ?? DEFAULT_MODEL_NAME,
     messages: (session.messages ?? []).map((message) => ({
       ...message,
       timeLabel: message.timeLabel ?? formatMessageTime(message.timestamp),
@@ -65,7 +53,7 @@ const cloneSessions = (sessions: ChatSession[]): ChatSession[] =>
 
 const loadSessionsFromStorage = (): ChatSession[] => {
   try {
-    const stored = storageGetItem(STORAGE_KEY);
+    const stored = storageGetItem(SESSIONS_STORAGE_KEY);
     const parsed: StoredSession[] = stored ? JSON.parse(stored) : [];
     return parsed.map((session) => normalizeSession(session));
   } catch (error) {
@@ -82,7 +70,7 @@ const getCachedSessions = (): ChatSession[] => {
 };
 
 const persistSessions = (sessions: ChatSession[]): void => {
-  storageSetItem(STORAGE_KEY, JSON.stringify(sessions));
+  storageSetItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
   sessionsCache = sessions;
 };
 
@@ -92,7 +80,7 @@ export const getSessions = (): ChatSession[] => {
 
 export const getActiveSessionId = (): string | null => {
   try {
-    return storageGetItem(ACTIVE_SESSION_KEY);
+    return storageGetItem(ACTIVE_SESSION_STORAGE_KEY);
   } catch (error) {
     console.error('Failed to load active session id:', error);
     return null;
@@ -101,7 +89,7 @@ export const getActiveSessionId = (): string | null => {
 
 export const setActiveSessionId = (sessionId: string): void => {
   try {
-    storageSetItem(ACTIVE_SESSION_KEY, sessionId);
+    storageSetItem(ACTIVE_SESSION_STORAGE_KEY, sessionId);
   } catch (error) {
     console.error('Failed to persist active session id:', error);
   }
@@ -109,7 +97,7 @@ export const setActiveSessionId = (sessionId: string): void => {
 
 export const clearActiveSessionId = (): void => {
   try {
-    storageRemoveItem(ACTIVE_SESSION_KEY);
+    storageRemoveItem(ACTIVE_SESSION_STORAGE_KEY);
   } catch (error) {
     console.error('Failed to clear active session id:', error);
   }

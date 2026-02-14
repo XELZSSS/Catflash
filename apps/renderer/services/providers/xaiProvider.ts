@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { ProviderId } from '../../types';
+import { parseImageGenerationResponse } from './imageResponse';
 import { XAI_MODEL_CATALOG } from './models';
 import { OpenAIStandardProviderBase } from './openaiStandardProviderBase';
 import {
@@ -62,15 +63,7 @@ class XAIProvider extends OpenAIStandardProviderBase implements ProviderChat {
     const response = (await client.images.generate(payload as never)) as unknown as {
       data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
     };
-    const first = response.data?.[0];
-    if (!first) {
-      throw new Error('xAI image generation returned no image.');
-    }
-    return {
-      imageUrl: first.url,
-      imageDataUrl: first.b64_json ? `data:image/png;base64,${first.b64_json}` : undefined,
-      revisedPrompt: first.revised_prompt,
-    };
+    return parseImageGenerationResponse(response, 'xAI image generation returned no image.');
   }
 }
 

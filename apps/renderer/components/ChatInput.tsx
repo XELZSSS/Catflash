@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Search, StopCircle, BookOpen, PenLine, ImagePlus } from 'lucide-react';
 import { t } from '../utils/i18n';
 import { IconButton } from './ui';
+import { readAppStorage, removeAppStorage, writeAppStorage } from '../services/storageKeys';
 
 interface ChatInputProps {
   onSend: (message: string, mode: 'chat' | 'image') => void;
@@ -20,8 +21,6 @@ interface ChatInputProps {
   obsidianReadDisabled?: boolean;
   obsidianWriteDisabled?: boolean;
 }
-
-const DRAFT_STORAGE_KEY = 'gemini_chat_input_draft';
 
 const ChatInputComponent: React.FC<ChatInputProps> = ({
   onSend,
@@ -53,13 +52,9 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
   };
 
   useEffect(() => {
-    try {
-      const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-      if (savedDraft) {
-        setInput(savedDraft);
-      }
-    } catch (error) {
-      console.warn('Failed to load draft from storage:', error);
+    const savedDraft = readAppStorage('inputDraft');
+    if (savedDraft) {
+      setInput(savedDraft);
     }
   }, []);
 
@@ -111,11 +106,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     setInput(newValue);
     clearDraftTimer();
     draftSaveTimerRef.current = window.setTimeout(() => {
-      try {
-        localStorage.setItem(DRAFT_STORAGE_KEY, newValue);
-      } catch (error) {
-        console.warn('Failed to save draft to storage:', error);
-      }
+      writeAppStorage('inputDraft', newValue);
       clearDraftTimer();
     }, 350);
   };
@@ -132,11 +123,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     onSend(input, inputMode);
     setInput('');
     clearDraftTimer();
-    try {
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
-    } catch (error) {
-      console.warn('Failed to clear draft from storage:', error);
-    }
+    removeAppStorage('inputDraft');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

@@ -1,4 +1,6 @@
 import { ProviderId } from '../../types';
+import { getDefaultOllamaBaseUrl, resolveBaseUrl } from './baseUrl';
+import { parseImageGenerationResponse } from './imageResponse';
 import { OLLAMA_MODEL_CATALOG } from './models';
 import { OpenAIProxyCompatibleProviderBase } from './openaiProxyCompatibleProviderBase';
 import { buildProxyUrl } from './proxy';
@@ -12,7 +14,6 @@ import { sanitizeApiKey } from './utils';
 
 export const OLLAMA_PROVIDER_ID: ProviderId = 'ollama';
 const OLLAMA_PROXY_BASE_URL = buildProxyUrl('/proxy/openai-compatible');
-const OLLAMA_DEFAULT_BASE_URL = 'http://localhost:11434/v1/';
 
 const FALLBACK_OLLAMA_MODEL = 'llama3.2';
 const OLLAMA_MODEL_FROM_ENV = process.env.OLLAMA_MODEL;
@@ -26,24 +27,6 @@ const OLLAMA_MODELS = Array.from(
 );
 
 const DEFAULT_OLLAMA_API_KEY = sanitizeApiKey(process.env.OLLAMA_API_KEY);
-
-const resolveBaseUrl = (value: string): string => {
-  if (value.startsWith('http://') || value.startsWith('https://')) {
-    return value;
-  }
-  if (typeof window !== 'undefined') {
-    return new URL(value, window.location.origin).toString();
-  }
-  return value;
-};
-
-export const getDefaultOllamaBaseUrl = (): string => {
-  const envOverride = process.env.OLLAMA_BASE_URL;
-  if (envOverride && envOverride !== 'undefined') {
-    return resolveBaseUrl(envOverride);
-  }
-  return OLLAMA_DEFAULT_BASE_URL;
-};
 
 class OllamaProvider extends OpenAIProxyCompatibleProviderBase implements ProviderChat {
   constructor() {
@@ -81,15 +64,7 @@ class OllamaProvider extends OpenAIProxyCompatibleProviderBase implements Provid
     } as never)) as unknown as {
       data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
     };
-    const first = response.data?.[0];
-    if (!first) {
-      throw new Error('Ollama image generation returned no image.');
-    }
-    return {
-      imageUrl: first.url,
-      imageDataUrl: first.b64_json ? `data:image/png;base64,${first.b64_json}` : undefined,
-      revisedPrompt: first.revised_prompt,
-    };
+    return parseImageGenerationResponse(response, 'Ollama image generation returned no image.');
   }
 
   protected resolveTargetBaseUrl(baseUrl?: string): string | undefined {

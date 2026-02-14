@@ -1,35 +1,21 @@
 import { ProviderId } from '../../types';
 import { PROVIDER_CAPABILITIES } from '../../services/providers/capabilities';
-import { buildProxyUrl } from '../../services/providers/proxy';
+import {
+  resolveBaseUrlForProvider as resolveProviderBaseUrl,
+  resolveBaseUrlForRegion as resolveProviderRegionalBaseUrl,
+} from '../../services/providers/baseUrl';
 import { t } from '../../utils/i18n';
 import { DropdownOption } from '../settings/Dropdown';
-
-export const MINIMAX_BASE_URL_INTL = buildProxyUrl('/proxy/minimax-intl');
-export const MINIMAX_BASE_URL_CN = buildProxyUrl('/proxy/minimax-cn');
-export const MOONSHOT_BASE_URL_INTL = buildProxyUrl('/proxy/moonshot-intl');
-export const MOONSHOT_BASE_URL_CN = buildProxyUrl('/proxy/moonshot-cn');
-export const GLM_BASE_URL_INTL = buildProxyUrl('/proxy/glm-intl/chat/completions');
-export const GLM_BASE_URL_CN = buildProxyUrl('/proxy/glm-cn/chat/completions');
 
 export const resolveBaseUrlForProvider = (
   providerId: ProviderId,
   override?: string
 ): string | undefined => {
-  if (override) return override;
-  if (providerId === 'minimax') return MINIMAX_BASE_URL_INTL;
-  if (providerId === 'moonshot') return MOONSHOT_BASE_URL_INTL;
-  if (providerId === 'glm') return GLM_BASE_URL_CN;
-  return undefined;
+  return resolveProviderBaseUrl(providerId, override);
 };
 
 export const resolveBaseUrlForRegion = (providerId: ProviderId, region: 'intl' | 'cn'): string => {
-  if (providerId === 'moonshot') {
-    return region === 'intl' ? MOONSHOT_BASE_URL_INTL : MOONSHOT_BASE_URL_CN;
-  }
-  if (providerId === 'glm') {
-    return region === 'intl' ? GLM_BASE_URL_INTL : GLM_BASE_URL_CN;
-  }
-  return region === 'intl' ? MINIMAX_BASE_URL_INTL : MINIMAX_BASE_URL_CN;
+  return resolveProviderRegionalBaseUrl(providerId, region);
 };
 
 export const providerMeta: Record<

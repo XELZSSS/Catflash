@@ -71,13 +71,14 @@ const SidebarComponent: React.FC<SidebarProps> = ({
 }) => {
   const listContainerRef = useRef<HTMLDivElement>(null);
   const estimateItemSize = useCallback(() => 44, []);
-  const { visibleItems, topSpacerHeight, bottomSpacerHeight, measureItem } = useVirtualList({
-    items: filteredSessions,
-    containerRef: listContainerRef,
-    estimateSize: estimateItemSize,
-    getItemKey: (session) => session.id,
-    overscan: 10,
-  });
+  const { visibleItems, topSpacerHeight, bottomSpacerHeight, measureItem } =
+    useVirtualList<ChatSession>({
+      items: filteredSessions,
+      containerRef: listContainerRef,
+      estimateSize: estimateItemSize,
+      getItemKey: (session) => session.id,
+      overscan: 10,
+    });
 
   const sortButtonClass = (active: boolean) =>
     `!h-7 !w-7 !p-0 !rounded-md !ring-0 !bg-transparent hover:!bg-transparent shadow-none transition-colors ${

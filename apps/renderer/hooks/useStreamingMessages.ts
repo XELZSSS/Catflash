@@ -16,6 +16,7 @@ type UseStreamingMessagesOptions = {
   messages: ChatMessage[];
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
 };
+type MessageOverrides = Omit<Partial<ChatMessage>, 'role' | 'text'>;
 
 export const useStreamingMessages = ({
   chatService,
@@ -78,6 +79,28 @@ export const useStreamingMessages = ({
     [commitMessages]
   );
 
+  const buildMessage = useCallback(
+    (role: Role, text: string, overrides: MessageOverrides = {}): ChatMessage => {
+      const { id, timestamp, timeLabel, ...rest } = overrides;
+      const resolvedTimestamp = timestamp ?? Date.now();
+      return {
+        id: id ?? uuidv4(),
+        role,
+        text,
+        timestamp: resolvedTimestamp,
+        timeLabel: timeLabel ?? formatMessageTime(resolvedTimestamp),
+        ...rest,
+      };
+    },
+    []
+  );
+
+  const syncHistory = useCallback(() => {
+    void chatService.startChatWithHistory(messagesRef.current).catch((error) => {
+      console.error('Failed to synchronize chat history:', error);
+    });
+  }, [chatService]);
+
   useEffect(() => {
     const behavior = isStreaming ? 'auto' : 'smooth';
     scrollToBottom(behavior);
@@ -87,31 +110,16 @@ export const useStreamingMessages = ({
     async (text: string) => {
       stopRequestedRef.current = false;
       const modelMessageId = uuidv4();
-
-      const userTimestamp = Date.now();
-      const userMessage: ChatMessage = {
-        id: uuidv4(),
-        role: Role.User,
-        text: text,
-        timestamp: userTimestamp,
-        timeLabel: formatMessageTime(userTimestamp),
-      };
+      const userMessage = buildMessage(Role.User, text);
 
       commitMessages((prev) => [...prev, userMessage]);
       setIsStreaming(true);
       setIsLoading(true);
 
       try {
-        const modelTimestamp = Date.now();
         commitMessages((prev) => [
           ...prev,
-          {
-            id: modelMessageId,
-            role: Role.Model,
-            text: '',
-            timestamp: modelTimestamp,
-            timeLabel: formatMessageTime(modelTimestamp),
-          },
+          buildMessage(Role.Model, '', { id: modelMessageId }),
         ]);
         requestAnimationFrame(() => scrollToBottom('auto', true));
 
@@ -197,15 +205,7 @@ ${rawMessage}
 \`\`\`
 </details>`;
 
-        const errorTimestamp = Date.now();
-        const errorMessage: ChatMessage = {
-          id: uuidv4(),
-          role: Role.Model,
-          text: finalMessageText,
-          timestamp: errorTimestamp,
-          timeLabel: formatMessageTime(errorTimestamp),
-          isError: true,
-        };
+        const errorMessage = buildMessage(Role.Model, finalMessageText, { isError: true });
         commitMessages((prev) => {
           const index = prev.findIndex((msg) => msg.id === modelMessageId);
           if (index === -1) {
@@ -223,42 +223,25 @@ ${rawMessage}
       } finally {
         setIsStreaming(false);
         setIsLoading(false);
-        void chatService.startChatWithHistory(messagesRef.current).catch((error) => {
-          console.error('Failed to synchronize chat history:', error);
-        });
+        syncHistory();
       }
     },
-    [chatService, commitMessages, scrollToBottom, updateMessageById]
+    [buildMessage, chatService, commitMessages, scrollToBottom, syncHistory, updateMessageById]
   );
 
   const handleGenerateImage = useCallback(
     async (prompt: string) => {
       stopRequestedRef.current = false;
       const modelMessageId = uuidv4();
-
-      const userTimestamp = Date.now();
-      const userMessage: ChatMessage = {
-        id: uuidv4(),
-        role: Role.User,
-        text: prompt,
-        timestamp: userTimestamp,
-        timeLabel: formatMessageTime(userTimestamp),
-      };
+      const userMessage = buildMessage(Role.User, prompt);
 
       commitMessages((prev) => [...prev, userMessage]);
       setIsLoading(true);
 
       try {
-        const modelTimestamp = Date.now();
         commitMessages((prev) => [
           ...prev,
-          {
-            id: modelMessageId,
-            role: Role.Model,
-            text: '',
-            timestamp: modelTimestamp,
-            timeLabel: formatMessageTime(modelTimestamp),
-          },
+          buildMessage(Role.Model, '', { id: modelMessageId }),
         ]);
         requestAnimationFrame(() => scrollToBottom('auto', true));
 
@@ -282,12 +265,10 @@ ${rawMessage}
         });
       } finally {
         setIsLoading(false);
-        void chatService.startChatWithHistory(messagesRef.current).catch((error) => {
-          console.error('Failed to synchronize chat history:', error);
-        });
+        syncHistory();
       }
     },
-    [chatService, commitMessages, scrollToBottom, updateMessageById]
+    [buildMessage, chatService, commitMessages, scrollToBottom, syncHistory, updateMessageById]
   );
 
   const handleSendInput = useCallback(

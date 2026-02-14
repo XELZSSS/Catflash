@@ -1,13 +1,8 @@
 import { ProviderId, TavilyConfig } from '../../types';
 import { ImageGenerationConfig } from './types';
+import { resolveDefaultBaseUrlForProvider } from './baseUrl';
 import { supportsProviderImageGeneration, supportsProviderTavily } from './capabilities';
 import { getProviderDefaultModel, listProviderIds } from './registry';
-import { getDefaultGlmBaseUrl } from './glmProvider';
-import { getDefaultMinimaxBaseUrl } from './minimaxProvider';
-import { getDefaultMoonshotBaseUrl } from './moonshotProvider';
-import { getDefaultIflowBaseUrl } from './iflowProvider';
-import { getDefaultOpenAICompatibleBaseUrl } from './openaiCompatibleProvider';
-import { getDefaultOllamaBaseUrl } from './ollamaProvider';
 import { getDefaultTavilyConfig } from './tavily';
 import { sanitizeApiKey } from './utils';
 
@@ -45,16 +40,6 @@ const getDefaultImageGenerationConfig = (
   };
 };
 
-const resolveDefaultBaseUrl = (providerId: ProviderId): string | undefined => {
-  if (providerId === 'minimax') return getDefaultMinimaxBaseUrl();
-  if (providerId === 'moonshot') return getDefaultMoonshotBaseUrl();
-  if (providerId === 'glm') return getDefaultGlmBaseUrl();
-  if (providerId === 'iflow') return getDefaultIflowBaseUrl();
-  if (providerId === 'openai-compatible') return getDefaultOpenAICompatibleBaseUrl();
-  if (providerId === 'ollama') return getDefaultOllamaBaseUrl();
-  return undefined;
-};
-
 export const getEnvApiKey = (providerId: ProviderId): string | undefined => {
   if (providerId === 'openai') {
     return sanitizeApiKey(process.env.OPENAI_API_KEY);
@@ -89,7 +74,7 @@ export const getEnvApiKey = (providerId: ProviderId): string | undefined => {
 export const getDefaultProviderSettings = (providerId: ProviderId): ProviderSettings => ({
   apiKey: getEnvApiKey(providerId),
   modelName: getProviderDefaultModel(providerId),
-  baseUrl: resolveDefaultBaseUrl(providerId),
+  baseUrl: resolveDefaultBaseUrlForProvider(providerId),
   customHeaders: [],
   tavily: supportsProviderTavily(providerId) ? getDefaultTavilyConfig() : undefined,
   imageGeneration: getDefaultImageGenerationConfig(providerId),

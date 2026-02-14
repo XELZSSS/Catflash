@@ -1,9 +1,11 @@
 import OpenAI from 'openai';
-import { ProviderId, TavilyConfig } from '../../types';
+import { ChatMessage, ProviderId, Role, TavilyConfig } from '../../types';
 import { OpenAIChatCreateStreaming, OpenAIStreamChunk, runToolCallLoop } from './openaiChatHelpers';
+import { getDefaultMinimaxBaseUrl, resolveBaseUrl } from './baseUrl';
+import { parseImageGenerationResponse } from './imageResponse';
 import { MINIMAX_MODEL_CATALOG } from './models';
 import { OpenAIStandardProviderBase } from './openaiStandardProviderBase';
-import { buildProxyUrl, getProxyAuthHeadersForTarget } from './proxy';
+import { getProxyAuthHeadersForTarget } from './proxy';
 import { buildOpenAITavilyTools } from './tavily';
 import {
   ImageGenerationConfig,
@@ -15,32 +17,6 @@ import {
 import { sanitizeApiKey } from './utils';
 
 export const MINIMAX_PROVIDER_ID: ProviderId = 'minimax';
-export const DEFAULT_MINIMAX_BASE_URL = buildProxyUrl('/proxy/minimax-intl');
-export const CHINA_MINIMAX_BASE_URL = buildProxyUrl('/proxy/minimax-cn');
-
-const resolveBaseUrl = (value: string): string => {
-  if (value.startsWith('http://') || value.startsWith('https://')) {
-    return value;
-  }
-  if (typeof window !== 'undefined') {
-    return new URL(value, window.location.origin).toString();
-  }
-  return value;
-};
-
-export const getDefaultMinimaxBaseUrl = (): string => {
-  const envOverride = process.env.MINIMAX_BASE_URL;
-  if (envOverride && envOverride !== 'undefined') {
-    return resolveBaseUrl(envOverride);
-  }
-  if (typeof navigator !== 'undefined') {
-    const lang = navigator.language.toLowerCase();
-    if (lang.startsWith('zh')) {
-      return resolveBaseUrl(CHINA_MINIMAX_BASE_URL);
-    }
-  }
-  return resolveBaseUrl(DEFAULT_MINIMAX_BASE_URL);
-};
 
 const FALLBACK_MINIMAX_MODEL = 'MiniMax-M2.1';
 const MINIMAX_MODEL_FROM_ENV = process.env.MINIMAX_MODEL;
@@ -140,26 +116,15 @@ class MiniMaxProvider extends OpenAIStandardProviderBase implements ProviderChat
       data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
       image_urls?: string[];
     };
-    const first = payload.data?.[0];
-    const firstUrl = first?.url ?? payload.image_urls?.[0];
-    const firstDataUrl = first?.b64_json ? `data:image/png;base64,${first.b64_json}` : undefined;
-    if (!firstUrl && !firstDataUrl) {
-      throw new Error('MiniMax image generation returned no image.');
-    }
-
-    return {
-      imageUrl: firstUrl,
-      imageDataUrl: firstDataUrl,
-      revisedPrompt: first?.revised_prompt,
-    };
+    return parseImageGenerationResponse(payload, 'MiniMax image generation returned no image.');
   }
 
   async *sendMessageStream(message: string): AsyncGenerator<string, void, unknown> {
     const client = this.getClient();
 
-    const userMessage = {
+    const userMessage: ChatMessage = {
       id: `${this.id}-user-${Date.now()}`,
-      role: 'user' as const,
+      role: Role.User,
       text: message,
       timestamp: Date.now(),
     };
@@ -235,9 +200,9 @@ class MiniMaxProvider extends OpenAIStandardProviderBase implements ProviderChat
         }
       }
 
-      const modelMessage = {
+      const modelMessage: ChatMessage = {
         id: `${this.id}-model-${Date.now()}`,
-        role: 'model' as const,
+        role: Role.Model,
         text: fullResponse,
         reasoning: fullReasoning || undefined,
         timestamp: Date.now(),

@@ -1,13 +1,13 @@
 import OpenAI from 'openai';
 import { ProviderId } from '../../types';
+import { getDefaultIflowBaseUrl, resolveBaseUrl } from './baseUrl';
 import { IFLOW_MODEL_CATALOG } from './models';
 import { OpenAIStandardProviderBase } from './openaiStandardProviderBase';
-import { buildProxyUrl, getProxyAuthHeadersForTarget } from './proxy';
+import { getProxyAuthHeadersForTarget } from './proxy';
 import { ProviderChat, ProviderDefinition } from './types';
 import { sanitizeApiKey } from './utils';
 
 export const IFLOW_PROVIDER_ID: ProviderId = 'iflow';
-export const IFLOW_BASE_URL = buildProxyUrl('/proxy/iflow');
 
 const FALLBACK_IFLOW_MODEL = 'TBStars2-200B-A13B';
 const IFLOW_MODEL_FROM_ENV = process.env.IFLOW_MODEL;
@@ -21,24 +21,6 @@ const IFLOW_MODELS = Array.from(
 );
 
 const DEFAULT_IFLOW_API_KEY = sanitizeApiKey(process.env.IFLOW_API_KEY);
-
-const resolveBaseUrl = (value: string): string => {
-  if (value.startsWith('http://') || value.startsWith('https://')) {
-    return value;
-  }
-  if (typeof window !== 'undefined') {
-    return new URL(value, window.location.origin).toString();
-  }
-  return value;
-};
-
-export const getDefaultIflowBaseUrl = (): string => {
-  const envOverride = process.env.IFLOW_BASE_URL;
-  if (envOverride && envOverride !== 'undefined') {
-    return resolveBaseUrl(envOverride);
-  }
-  return resolveBaseUrl(IFLOW_BASE_URL);
-};
 
 class IflowProvider extends OpenAIStandardProviderBase implements ProviderChat {
   private baseUrl: string;

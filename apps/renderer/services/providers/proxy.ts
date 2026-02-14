@@ -1,7 +1,25 @@
-import proxyConfig from '../../../shared/proxy-config.cjs';
-
-const { buildProxyOrigin, normalizeString, resolveProxyHost, resolveProxyPort } = proxyConfig;
+const DEFAULT_PROXY_PORT = '4010';
+const DEFAULT_PROXY_HOST = '127.0.0.1';
 const AUTH_HEADER = 'x-catflash-proxy-token';
+
+const normalizeString = (value: unknown): string | undefined => {
+  if (value === undefined || value === null) return undefined;
+  const normalized = String(value).trim();
+  return normalized.length > 0 && normalized !== 'undefined' ? normalized : undefined;
+};
+
+const resolveProxyPort = (value: unknown): string => {
+  const parsed = Number.parseInt(normalizeString(value) ?? DEFAULT_PROXY_PORT, 10);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 65535) {
+    return DEFAULT_PROXY_PORT;
+  }
+  return String(parsed);
+};
+
+const resolveProxyHost = (value: unknown): string => normalizeString(value) ?? DEFAULT_PROXY_HOST;
+
+const buildProxyOrigin = ({ host, port }: { host: string; port: string }): string =>
+  `http://${host}:${port}`;
 
 const readProxyPort = (): string => {
   const fromBridge = typeof window !== 'undefined' ? window.gero?.getProxyPort?.() : undefined;
